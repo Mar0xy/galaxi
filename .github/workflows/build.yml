@@ -26,7 +26,7 @@ jobs:
           channel: 'stable'
       
       - name: Setup Rust
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
       
       - name: Install flutter_rust_bridge_codegen
         run: cargo install flutter_rust_bridge_codegen
