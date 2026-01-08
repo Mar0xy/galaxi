@@ -107,6 +107,17 @@ pub async fn authenticate(login_code: Option<String>, refresh_token: Option<Stri
     Ok(new_refresh_token)
 }
 
+/// Login with an authorization code from the OAuth redirect
+pub async fn login_with_code(code: String) -> Result<AccountDto> {
+    // Authenticate using the code
+    let refresh_token = authenticate(Some(code), None).await?;
+    
+    // Get user info and add account
+    let account = add_current_account(refresh_token).await?;
+    
+    Ok(account)
+}
+
 pub async fn is_logged_in() -> bool {
     APP_STATE.api.lock().await.is_some()
 }

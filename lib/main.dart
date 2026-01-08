@@ -174,38 +174,107 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _login() async {
     setState(() => _isLoading = true);
-    // In a real app, you would open a webview and handle OAuth
-    // For now, show a dialog explaining how to login
+    // Show a dialog with login instructions and code input
     if (!mounted) return;
+    
+    final codeController = TextEditingController();
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Login Instructions'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('1. Open this URL in a browser:'),
-            const SizedBox(height: 8),
-            SelectableText(
-              getLoginUrl(),
-              style: const TextStyle(fontSize: 12),
+      barrierDismissible: false,
+      builder: (context) {
+        bool isSubmitting = false;
+        String? errorMessage;
+        
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Login Instructions'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('1. Open this URL in a browser:'),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: SelectableText(
+                      getLoginUrl(),
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('2. Login with your GOG account'),
+                  const SizedBox(height: 8),
+                  const Text('3. After login, you will be redirected. Copy the code from the URL'),
+                  const SizedBox(height: 16),
+                  const Text('4. Enter the code below:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: codeController,
+                    decoration: InputDecoration(
+                      hintText: 'Paste authorization code here',
+                      border: const OutlineInputBorder(),
+                      errorText: errorMessage,
+                    ),
+                    autofocus: true,
+                  ),
+                  if (isSubmitting)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            const Text('2. Login with your GOG account'),
-            const SizedBox(height: 8),
-            const Text('3. Copy the code from the redirect URL'),
-            const SizedBox(height: 8),
-            const Text('4. Enter the code below'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSubmitting ? null : () async {
+                  final code = codeController.text.trim();
+                  if (code.isEmpty) {
+                    setDialogState(() => errorMessage = 'Please enter the authorization code');
+                    return;
+                  }
+                  
+                  setDialogState(() {
+                    isSubmitting = true;
+                    errorMessage = null;
+                  });
+                  
+                  try {
+                    // Use authenticate with login code
+                    final refreshToken = await authenticate(loginCode: code);
+                    // Then add the current account
+                    await addCurrentAccount(refreshToken: refreshToken);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      // Refresh the app state
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HomePage()),
+                      );
+                    }
+                  } catch (e) {
+                    setDialogState(() {
+                      isSubmitting = false;
+                      errorMessage = 'Login failed: $e';
+                    });
+                  }
+                },
+                child: const Text('Login'),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
     setState(() => _isLoading = false);
   }
