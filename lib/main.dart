@@ -8,11 +8,49 @@ Future<void> main() async {
   runApp(const MinigalaxyApp());
 }
 
-class MinigalaxyApp extends StatelessWidget {
+class MinigalaxyApp extends StatefulWidget {
   const MinigalaxyApp({super.key});
 
   @override
+  State<MinigalaxyApp> createState() => _MinigalaxyAppState();
+}
+
+class _MinigalaxyAppState extends State<MinigalaxyApp> {
+  bool _darkTheme = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTheme();
+  }
+
+  Future<void> _loadTheme() async {
+    try {
+      final dark = await getDarkTheme();
+      setState(() {
+        _darkTheme = dark;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _updateTheme(bool dark) {
+    setState(() => _darkTheme = dark);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const MaterialApp(
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
     return MaterialApp(
       title: 'Minigalaxy',
       theme: ThemeData(
@@ -29,14 +67,16 @@ class MinigalaxyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      themeMode: ThemeMode.system,
-      home: const HomePage(),
+      themeMode: _darkTheme ? ThemeMode.dark : ThemeMode.light,
+      home: HomePage(onThemeChanged: _updateTheme),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final Function(bool)? onThemeChanged;
+
+  const HomePage({super.key, this.onThemeChanged});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -58,15 +98,54 @@ class _HomePageState extends State<HomePage> {
   Future<void> _checkLoginStatus() async {
     setState(() => _isLoading = true);
     try {
-      final loggedIn = await isLoggedIn();
-      if (loggedIn) {
-        final userData = await getUserData();
-        final accounts = await getAllAccounts();
-        setState(() {
-          _isLoggedIn = true;
-          _username = userData.username;
-          _accounts = accounts;
-        });
+      // First check if we have a stored active account with refresh token
+      final activeAccount = await getActiveAccount();
+      if (activeAccount != null && activeAccount.refreshToken.isNotEmpty) {
+        // Try to authenticate using stored refresh token
+        try {
+          await authenticate(refreshToken: activeAccount.refreshToken);
+          final userData = await getUserData();
+          final accounts = await getAllAccounts();
+          
+          // Find the active account to get avatar URL
+          final currentAccount = accounts.firstWhere(
+            (a) => a.userId == activeAccount.userId,
+            orElse: () => activeAccount,
+          );
+          
+          setState(() {
+            _isLoggedIn = true;
+            _username = userData.username;
+            _avatarUrl = currentAccount.avatarUrl;
+            _accounts = accounts;
+          });
+        } catch (e) {
+          // Refresh token might be expired, need to re-login
+          setState(() {
+            _isLoggedIn = false;
+          });
+        }
+      } else {
+        // Check if logged in (in case already authenticated this session)
+        final loggedIn = await isLoggedIn();
+        if (loggedIn) {
+          final userData = await getUserData();
+          final accounts = await getAllAccounts();
+          
+          // Try to get avatar from accounts
+          String? avatarUrl;
+          final matchingAccount = accounts.where((a) => a.username == userData.username).toList();
+          if (matchingAccount.isNotEmpty) {
+            avatarUrl = matchingAccount.first.avatarUrl;
+          }
+          
+          setState(() {
+            _isLoggedIn = true;
+            _username = userData.username;
+            _avatarUrl = avatarUrl;
+            _accounts = accounts;
+          });
+        }
       }
     } catch (e) {
       // Not logged in or error
@@ -92,6 +171,7 @@ class _HomePageState extends State<HomePage> {
       username: _username,
       avatarUrl: _avatarUrl,
       accounts: _accounts,
+      onThemeChanged: widget.onThemeChanged,
       onLogout: () async {
         await logout();
         setState(() {
@@ -285,6 +365,7 @@ class LibraryPage extends StatefulWidget {
   final String? avatarUrl;
   final List<AccountDto> accounts;
   final VoidCallback onLogout;
+  final Function(bool)? onThemeChanged;
 
   const LibraryPage({
     super.key,
@@ -292,6 +373,7 @@ class LibraryPage extends StatefulWidget {
     this.avatarUrl,
     required this.accounts,
     required this.onLogout,
+    this.onThemeChanged,
   });
 
   @override
@@ -303,19 +385,24 @@ class _LibraryPageState extends State<LibraryPage> {
   List<GameDto> _games = [];
   String _searchQuery = '';
   bool _showInstalledOnly = false;
+  bool _showWindowsGames = false;
   String _viewMode = 'grid';
 
   @override
   void initState() {
     super.initState();
+    _loadSettings();
     _loadLibrary();
-    _loadViewMode();
   }
 
-  Future<void> _loadViewMode() async {
+  Future<void> _loadSettings() async {
     try {
       final mode = await getViewMode();
-      setState(() => _viewMode = mode);
+      final showWindows = await getShowWindowsGames();
+      setState(() {
+        _viewMode = mode;
+        _showWindowsGames = showWindows;
+      });
     } catch (e) {
       // Use default
     }
@@ -338,6 +425,12 @@ class _LibraryPageState extends State<LibraryPage> {
 
   List<GameDto> get _filteredGames {
     var games = _games;
+    
+    // Filter out Windows games if not enabled
+    if (!_showWindowsGames) {
+      games = games.where((g) => g.platform.toLowerCase() != 'windows').toList();
+    }
+    
     if (_searchQuery.isNotEmpty) {
       games = games.where((g) => 
         g.name.toLowerCase().contains(_searchQuery.toLowerCase())
@@ -803,14 +896,26 @@ class _LibraryPageState extends State<LibraryPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const SettingsPage(),
+        builder: (context) => SettingsPage(
+          onThemeChanged: widget.onThemeChanged,
+          onWindowsGamesChanged: (value) {
+            setState(() => _showWindowsGames = value);
+          },
+        ),
       ),
     );
   }
 }
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  final Function(bool)? onThemeChanged;
+  final Function(bool)? onWindowsGamesChanged;
+
+  const SettingsPage({
+    super.key,
+    this.onThemeChanged,
+    this.onWindowsGamesChanged,
+  });
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -822,6 +927,9 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _darkTheme = false;
   bool _showWindowsGames = false;
   bool _keepInstallers = false;
+  String _winePrefix = '';
+  String _wineExecutable = '';
+  bool _wineDebug = false;
 
   @override
   void initState() {
@@ -836,12 +944,18 @@ class _SettingsPageState extends State<SettingsPage> {
       final darkTheme = await getDarkTheme();
       final showWindows = await getShowWindowsGames();
       final keepInstallers = await getKeepInstallers();
+      final winePrefix = await getWinePrefix();
+      final wineExecutable = await getWineExecutable();
+      final wineDebug = await getWineDebug();
       setState(() {
         _installDir = installDir;
         _language = language;
         _darkTheme = darkTheme;
         _showWindowsGames = showWindows;
         _keepInstallers = keepInstallers;
+        _winePrefix = winePrefix;
+        _wineExecutable = wineExecutable;
+        _wineDebug = wineDebug;
       });
     } catch (e) {
       // Use defaults
@@ -893,6 +1007,7 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (value) async {
               await setDarkTheme(enabled: value);
               setState(() => _darkTheme = value);
+              widget.onThemeChanged?.call(value);
             },
           ),
           SwitchListTile(
@@ -903,6 +1018,7 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (value) async {
               await setShowWindowsGames(enabled: value);
               setState(() => _showWindowsGames = value);
+              widget.onWindowsGamesChanged?.call(value);
             },
           ),
           SwitchListTile(
@@ -913,6 +1029,82 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (value) async {
               await setKeepInstallers(enabled: value);
               setState(() => _keepInstallers = value);
+            },
+          ),
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'Wine Settings',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.wine_bar),
+            title: const Text('Wine Prefix'),
+            subtitle: Text(_winePrefix.isEmpty ? 'Default (~/.wine)' : _winePrefix),
+            onTap: _selectWinePrefix,
+          ),
+          ListTile(
+            leading: const Icon(Icons.terminal),
+            title: const Text('Wine Executable'),
+            subtitle: Text(_wineExecutable.isEmpty ? 'System default (wine)' : _wineExecutable),
+            onTap: _selectWineExecutable,
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.bug_report),
+            title: const Text('Wine Debug Mode'),
+            subtitle: const Text('Show Wine debug output'),
+            value: _wineDebug,
+            onChanged: (value) async {
+              await setWineDebug(enabled: value);
+              setState(() => _wineDebug = value);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings_applications),
+            title: const Text('Open Wine Configuration'),
+            subtitle: const Text('Configure Wine settings'),
+            onTap: () async {
+              try {
+                await openWineConfigGlobal();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Wine configuration opened')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to open Wine config: $e')),
+                  );
+                }
+              }
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.build),
+            title: const Text('Open Winetricks'),
+            subtitle: const Text('Install Windows components'),
+            onTap: () async {
+              try {
+                await openWinetricksGlobal();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Winetricks opened')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to open Winetricks: $e')),
+                  );
+                }
+              }
             },
           ),
           const Divider(),
@@ -928,7 +1120,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   const SizedBox(height: 16),
                   const Text(
-                    'A simple GOG client for Linux, macOS, and Windows.\n\n'
+                    'A simple GOG client for Linux.\n\n'
                     'Built with Flutter and Rust.',
                   ),
                 ],
@@ -938,5 +1130,86 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _selectWinePrefix() async {
+    final controller = TextEditingController(text: _winePrefix);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Wine Prefix'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter the path to your Wine prefix, or leave empty for default.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: '~/.wine',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      await setWinePrefix(prefix: result);
+      setState(() => _winePrefix = result);
+    }
+  }
+
+  Future<void> _selectWineExecutable() async {
+    final controller = TextEditingController(text: _wineExecutable);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Wine Executable'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter the path to your Wine executable, or leave empty for system default.'),
+            const SizedBox(height: 8),
+            const Text(
+              'Examples: wine, wine64, /opt/wine-staging/bin/wine, proton',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: 'wine',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      await setWineExecutable(executable: result);
+      setState(() => _wineExecutable = result);
+    }
   }
 }

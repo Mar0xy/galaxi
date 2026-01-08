@@ -110,6 +110,10 @@ pub struct Config {
     pub current_downloads: Vec<i64>,
     pub paused_downloads: std::collections::HashMap<String, u64>,
     pub active_account_id: Option<String>,
+    // Wine settings
+    pub wine_prefix: String,
+    pub wine_executable: String,
+    pub wine_debug: bool,
 }
 
 impl Default for Config {
@@ -133,6 +137,9 @@ impl Default for Config {
             current_downloads: Vec::new(),
             paused_downloads: std::collections::HashMap::new(),
             active_account_id: None,
+            wine_prefix: String::new(),
+            wine_executable: String::new(),
+            wine_debug: false,
         }
     }
 }
@@ -171,6 +178,10 @@ impl Config {
         if let Ok(val) = get_config_value("active_account_id") { 
             config.active_account_id = if val.is_empty() { None } else { Some(val) }; 
         }
+        // Wine settings
+        if let Ok(val) = get_config_value("wine_prefix") { config.wine_prefix = val; }
+        if let Ok(val) = get_config_value("wine_executable") { config.wine_executable = val; }
+        if let Ok(val) = get_config_value("wine_debug") { config.wine_debug = val == "true"; }
         
         Ok(config)
     }
@@ -207,6 +218,10 @@ impl Config {
         let _ = set_config_value("show_hidden_games", if self.show_hidden_games { "true" } else { "false" });
         let _ = set_config_value("show_windows_games", if self.show_windows_games { "true" } else { "false" });
         let _ = set_config_value("active_account_id", self.active_account_id.as_deref().unwrap_or(""));
+        // Wine settings
+        let _ = set_config_value("wine_prefix", &self.wine_prefix);
+        let _ = set_config_value("wine_executable", &self.wine_executable);
+        let _ = set_config_value("wine_debug", if self.wine_debug { "true" } else { "false" });
         
         Ok(())
     }

@@ -480,6 +480,79 @@ pub async fn set_keep_installers(enabled: bool) -> Result<()> {
 }
 
 // ============================================================================
+// Wine Configuration API
+// ============================================================================
+
+pub async fn get_wine_prefix() -> Result<String> {
+    let config = APP_STATE.config.lock().await;
+    Ok(config.wine_prefix.clone())
+}
+
+pub async fn set_wine_prefix(prefix: String) -> Result<()> {
+    let mut config = APP_STATE.config.lock().await;
+    config.wine_prefix = prefix;
+    config.save()
+}
+
+pub async fn get_wine_executable() -> Result<String> {
+    let config = APP_STATE.config.lock().await;
+    Ok(config.wine_executable.clone())
+}
+
+pub async fn set_wine_executable(executable: String) -> Result<()> {
+    let mut config = APP_STATE.config.lock().await;
+    config.wine_executable = executable;
+    config.save()
+}
+
+pub async fn get_wine_debug() -> Result<bool> {
+    let config = APP_STATE.config.lock().await;
+    Ok(config.wine_debug)
+}
+
+pub async fn set_wine_debug(enabled: bool) -> Result<()> {
+    let mut config = APP_STATE.config.lock().await;
+    config.wine_debug = enabled;
+    config.save()
+}
+
+pub async fn open_wine_config_global() -> Result<()> {
+    let config = APP_STATE.config.lock().await;
+    let wine_exe = if config.wine_executable.is_empty() {
+        "wine".to_string()
+    } else {
+        config.wine_executable.clone()
+    };
+    
+    let mut cmd = std::process::Command::new(&wine_exe);
+    cmd.arg("winecfg");
+    
+    if !config.wine_prefix.is_empty() {
+        cmd.env("WINEPREFIX", &config.wine_prefix);
+    }
+    
+    cmd.spawn()
+        .map_err(|e| super::error::MinigalaxyError::LaunchError(format!("Failed to open winecfg: {}", e)))?;
+    
+    Ok(())
+}
+
+pub async fn open_winetricks_global() -> Result<()> {
+    let config = APP_STATE.config.lock().await;
+    
+    let mut cmd = std::process::Command::new("winetricks");
+    
+    if !config.wine_prefix.is_empty() {
+        cmd.env("WINEPREFIX", &config.wine_prefix);
+    }
+    
+    cmd.spawn()
+        .map_err(|e| super::error::MinigalaxyError::LaunchError(format!("Failed to open winetricks: {}", e)))?;
+    
+    Ok(())
+}
+
+// ============================================================================
 // Utility API
 // ============================================================================
 
