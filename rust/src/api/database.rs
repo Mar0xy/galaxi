@@ -86,15 +86,17 @@ pub fn init_database() -> Result<()> {
     ).map_err(|e| MinigalaxyError::ConfigError(e.to_string()))?;
     
     // Insert default config values if not exists
-    let defaults = vec![
+    let default_install_dir = dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("GOG Games")
+        .to_string_lossy()
+        .to_string();
+    
+    let defaults: Vec<(&str, &str)> = vec![
         ("locale", ""),
         ("lang", "en"),
         ("view", "grid"),
-        ("install_dir", dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("GOG Games")
-            .to_string_lossy()
-            .as_ref()),
+        ("install_dir", &default_install_dir),
         ("keep_installers", "false"),
         ("stay_logged_in", "true"),
         ("use_dark_theme", "false"),

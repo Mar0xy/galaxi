@@ -474,7 +474,7 @@ class _LibraryPageState extends State<LibraryPage> {
     }
   }
 
-  Widget _buildGameCard(dynamic game) {
+  Widget _buildGameCard(GameDto game) {
     final isInstalled = game.installDir.isNotEmpty;
     
     return Card(
@@ -542,7 +542,7 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
-  Widget _buildGameListTile(dynamic game) {
+  Widget _buildGameListTile(GameDto game) {
     final isInstalled = game.installDir.isNotEmpty;
     
     return Card(
@@ -591,7 +591,7 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
-  void _showGameDetails(dynamic game) {
+  void _showGameDetails(GameDto game) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -638,7 +638,7 @@ class _LibraryPageState extends State<LibraryPage> {
                   ElevatedButton.icon(
                     onPressed: () async {
                       try {
-                        await launchGame(game: game);
+                        await launchGameAsync(gameId: game.id);
                         if (mounted) Navigator.pop(context);
                       } catch (e) {
                         if (mounted) {
@@ -676,7 +676,7 @@ class _LibraryPageState extends State<LibraryPage> {
                       );
                       if (confirm == true) {
                         try {
-                          await uninstallGame(game: game);
+                          await uninstallGame(gameId: game.id);
                           if (mounted) {
                             Navigator.pop(context);
                             _loadLibrary();
@@ -700,7 +700,7 @@ class _LibraryPageState extends State<LibraryPage> {
                   ElevatedButton.icon(
                     onPressed: () async {
                       try {
-                        await startDownload(game: game);
+                        await startDownload(gameId: game.id);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Download started')),

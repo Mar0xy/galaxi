@@ -2,8 +2,9 @@
 // This module provides the bridge between Flutter and Rust
 // Uses DTOs (Data Transfer Objects) to avoid opaque/non-opaque conflicts
 
-use super::account::{AccountManager, fetch_user_avatar, Account as InternalAccount};
+use super::account::{fetch_user_avatar, Account as InternalAccount};
 use super::config::Config as InternalConfig;
+use super::database::{self, accounts_db, games_db};
 use super::download::DownloadManager;
 use super::dto::{
     GameDto, AccountDto, UserDataDto, DownloadProgressDto, 
@@ -24,22 +25,29 @@ struct AppState {
     config: Arc<Mutex<InternalConfig>>,
     api: Arc<Mutex<Option<GogApi>>>,
     download_manager: Arc<Mutex<DownloadManager>>,
-    account_manager: Arc<Mutex<AccountManager>>,
     // Cache of games by ID for internal lookups
     games_cache: Arc<Mutex<HashMap<i64, Game>>>,
+    db_initialized: Arc<Mutex<bool>>,
 }
 
 impl AppState {
     fn new() -> Self {
-        let config = InternalConfig::load().unwrap_or_default();
-        let account_manager = AccountManager::load().unwrap_or_default();
+        // Initialize database first
+        let db_init = database::init_database().is_ok();
+        
+        // Load config from database if available, otherwise use defaults
+        let config = if db_init {
+            InternalConfig::load_from_db().unwrap_or_default()
+        } else {
+            InternalConfig::load().unwrap_or_default()
+        };
         
         AppState {
             config: Arc::new(Mutex::new(config)),
             api: Arc::new(Mutex::new(None)),
             download_manager: Arc::new(Mutex::new(DownloadManager::new())),
-            account_manager: Arc::new(Mutex::new(account_manager)),
             games_cache: Arc::new(Mutex::new(HashMap::new())),
+            db_initialized: Arc::new(Mutex::new(db_init)),
         }
     }
 }
@@ -128,13 +136,12 @@ pub async fn get_user_data() -> Result<UserDataDto> {
 // ============================================================================
 
 pub async fn get_all_accounts() -> Result<Vec<AccountDto>> {
-    let manager = APP_STATE.account_manager.lock().await;
-    Ok(manager.get_all_accounts().iter().map(AccountDto::from).collect())
+    let accounts = accounts_db::get_all_accounts()?;
+    Ok(accounts.iter().map(AccountDto::from).collect())
 }
 
 pub async fn get_active_account() -> Result<Option<AccountDto>> {
-    let manager = APP_STATE.account_manager.lock().await;
-    Ok(manager.get_active_account().map(AccountDto::from))
+    Ok(accounts_db::get_active_account()?.map(AccountDto::from))
 }
 
 pub async fn add_current_account(refresh_token: String) -> Result<AccountDto> {
@@ -156,27 +163,25 @@ pub async fn add_current_account(refresh_token: String) -> Result<AccountDto> {
         last_login: Some(chrono::Utc::now().to_rfc3339()),
     };
     
-    let mut manager = APP_STATE.account_manager.lock().await;
-    manager.add_account(account.clone())?;
+    // Save to database
+    accounts_db::save_account(&account)?;
     
-    if manager.active_account_id.is_none() {
-        manager.set_active_account(&account.user_id)?;
+    // Set as active if no active account exists
+    if accounts_db::get_active_account()?.is_none() {
+        accounts_db::set_active_account(&account.user_id)?;
     }
     
     Ok(AccountDto::from(account))
 }
 
 pub async fn switch_account(user_id: String) -> Result<bool> {
-    let manager = APP_STATE.account_manager.lock().await;
+    let accounts = accounts_db::get_all_accounts()?;
     
-    if let Some(account) = manager.get_account(&user_id) {
+    if let Some(account) = accounts.iter().find(|a| a.user_id == user_id) {
         let refresh_token = account.refresh_token.clone();
-        drop(manager);
         
         authenticate(None, Some(refresh_token)).await?;
-        
-        let mut manager = APP_STATE.account_manager.lock().await;
-        manager.set_active_account(&user_id)?;
+        accounts_db::set_active_account(&user_id)?;
         
         Ok(true)
     } else {
@@ -185,8 +190,7 @@ pub async fn switch_account(user_id: String) -> Result<bool> {
 }
 
 pub async fn remove_account(user_id: String) -> Result<()> {
-    let mut manager = APP_STATE.account_manager.lock().await;
-    manager.remove_account(&user_id)
+    accounts_db::remove_account(&user_id)
 }
 
 // ============================================================================
@@ -200,10 +204,12 @@ pub async fn get_library() -> Result<Vec<GameDto>> {
     
     let games = api.get_library().await?;
     
-    // Cache the games for later lookups
+    // Cache the games for later lookups (in memory and database)
     let mut cache = APP_STATE.games_cache.lock().await;
     for game in &games {
         cache.insert(game.id, game.clone());
+        // Also save to database for persistence
+        let _ = games_db::save_game(game);
     }
     
     Ok(games.into_iter().map(GameDto::from).collect())

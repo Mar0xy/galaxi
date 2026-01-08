@@ -151,13 +151,63 @@ impl Config {
         }
     }
 
+    pub fn load_from_db() -> Result<Self> {
+        use super::database::{get_config_value, set_config_value};
+        
+        let mut config = Config::default();
+        
+        // Load each config value from the database
+        if let Ok(val) = get_config_value("locale") { config.locale = val; }
+        if let Ok(val) = get_config_value("lang") { config.lang = val; }
+        if let Ok(val) = get_config_value("view") { config.view = val; }
+        if let Ok(val) = get_config_value("install_dir") { config.install_dir = val; }
+        if let Ok(val) = get_config_value("username") { config.username = val; }
+        if let Ok(val) = get_config_value("refresh_token") { config.refresh_token = val; }
+        if let Ok(val) = get_config_value("keep_installers") { config.keep_installers = val == "true"; }
+        if let Ok(val) = get_config_value("stay_logged_in") { config.stay_logged_in = val == "true"; }
+        if let Ok(val) = get_config_value("use_dark_theme") { config.use_dark_theme = val == "true"; }
+        if let Ok(val) = get_config_value("show_hidden_games") { config.show_hidden_games = val == "true"; }
+        if let Ok(val) = get_config_value("show_windows_games") { config.show_windows_games = val == "true"; }
+        if let Ok(val) = get_config_value("active_account_id") { 
+            config.active_account_id = if val.is_empty() { None } else { Some(val) }; 
+        }
+        
+        Ok(config)
+    }
+
     pub fn save(&self) -> Result<()> {
+        // Save to both JSON file (legacy) and database
+        self.save_to_file()?;
+        self.save_to_db()?;
+        Ok(())
+    }
+
+    fn save_to_file(&self) -> Result<()> {
         let config_path = get_config_file_path();
         if let Some(parent) = config_path.parent() {
             fs::create_dir_all(parent)?;
         }
         let content = serde_json::to_string_pretty(self)?;
         fs::write(&config_path, content)?;
+        Ok(())
+    }
+
+    pub fn save_to_db(&self) -> Result<()> {
+        use super::database::set_config_value;
+        
+        let _ = set_config_value("locale", &self.locale);
+        let _ = set_config_value("lang", &self.lang);
+        let _ = set_config_value("view", &self.view);
+        let _ = set_config_value("install_dir", &self.install_dir);
+        let _ = set_config_value("username", &self.username);
+        let _ = set_config_value("refresh_token", &self.refresh_token);
+        let _ = set_config_value("keep_installers", if self.keep_installers { "true" } else { "false" });
+        let _ = set_config_value("stay_logged_in", if self.stay_logged_in { "true" } else { "false" });
+        let _ = set_config_value("use_dark_theme", if self.use_dark_theme { "true" } else { "false" });
+        let _ = set_config_value("show_hidden_games", if self.show_hidden_games { "true" } else { "false" });
+        let _ = set_config_value("show_windows_games", if self.show_windows_games { "true" } else { "false" });
+        let _ = set_config_value("active_account_id", self.active_account_id.as_deref().unwrap_or(""));
+        
         Ok(())
     }
 
