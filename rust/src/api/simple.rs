@@ -177,9 +177,15 @@ pub async fn add_current_account(refresh_token: String) -> Result<AccountDto> {
     // Save to database
     accounts_db::save_account(&account)?;
     
-    // Set as active if no active account exists
-    if accounts_db::get_active_account()?.is_none() {
-        accounts_db::set_active_account(&account.user_id)?;
+    // Set as active account
+    accounts_db::set_active_account(&account.user_id)?;
+    
+    // Update config with active_account_id and username
+    {
+        let mut config = APP_STATE.config.lock().await;
+        config.active_account_id = Some(account.user_id.clone());
+        config.username = account.username.clone();
+        config.save()?;
     }
     
     Ok(AccountDto::from(account))

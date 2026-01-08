@@ -294,12 +294,11 @@ impl GogApi {
                     continue;
                 }
 
+                // Determine platform - always include the game, just mark its platform correctly
                 let platform = if product.works_on.linux {
                     "linux"
-                } else if self.config.show_windows_games {
-                    "windows"
                 } else {
-                    continue;
+                    "windows"
                 };
 
                 let game = Game {
@@ -339,13 +338,8 @@ impl GogApi {
 
     pub async fn get_user_profile(&self, user_id: &str) -> Result<UserProfile> {
         let url = format!("https://users.gog.com/users/{}", user_id);
-        let response = self.client
-            .get(&url)
-            .send()
-            .await?
-            .json::<UserProfile>()
-            .await?;
-        Ok(response)
+        // Use authenticated request to ensure we get full profile data
+        self.request(&url).await
     }
 
     pub async fn get_download_info(&self, game: &Game, os: &str) -> Result<DownloadInfo> {
