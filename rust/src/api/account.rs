@@ -138,8 +138,21 @@ pub fn create_account_from_user_data(
 pub async fn fetch_user_avatar(api: &GogApi, user_id: &str) -> Result<Option<String>> {
     match api.get_user_profile(user_id).await {
         Ok(profile) => {
-            Ok(profile.avatars.and_then(|a| a.medium))
+            // Try to get the medium avatar, falling back to other sizes
+            let avatar = profile.avatars.and_then(|a| {
+                a.medium
+                    .or(a.medium2x)
+                    .or(a.large)
+                    .or(a.large2x)
+                    .or(a.small)
+                    .or(a.small2x)
+            });
+            Ok(avatar)
         }
-        Err(_) => Ok(None)
+        Err(e) => {
+            // Log the error but don't fail - avatar is optional
+            eprintln!("Failed to fetch user avatar for {}: {:?}", user_id, e);
+            Ok(None)
+        }
     }
 }

@@ -338,8 +338,14 @@ impl GogApi {
 
     pub async fn get_user_profile(&self, user_id: &str) -> Result<UserProfile> {
         let url = format!("https://users.gog.com/users/{}", user_id);
-        // Use authenticated request to ensure we get full profile data
-        self.request(&url).await
+        // users.gog.com doesn't require authentication
+        let response = self.client
+            .get(&url)
+            .send()
+            .await?
+            .json::<UserProfile>()
+            .await?;
+        Ok(response)
     }
 
     pub async fn get_download_info(&self, game: &Game, os: &str) -> Result<DownloadInfo> {
