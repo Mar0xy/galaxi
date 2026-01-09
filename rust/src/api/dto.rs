@@ -113,6 +113,8 @@ pub struct ConfigDto {
     pub wine_prefix: String,
     pub wine_executable: String,
     pub wine_debug: bool,
+    pub wine_disable_ntsync: bool,
+    pub wine_auto_install_dxvk: bool,
 }
 
 // Conversion implementations
@@ -283,6 +285,8 @@ impl From<&Config> for ConfigDto {
             wine_prefix: config.wine_prefix.clone(),
             wine_executable: config.wine_executable.clone(),
             wine_debug: config.wine_debug,
+            wine_disable_ntsync: config.wine_disable_ntsync,
+            wine_auto_install_dxvk: config.wine_auto_install_dxvk,
         }
     }
 }

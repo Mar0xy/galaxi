@@ -114,6 +114,8 @@ pub struct Config {
     pub wine_prefix: String,
     pub wine_executable: String,
     pub wine_debug: bool,
+    pub wine_disable_ntsync: bool,
+    pub wine_auto_install_dxvk: bool,
 }
 
 impl Default for Config {
@@ -140,6 +142,8 @@ impl Default for Config {
             wine_prefix: String::new(),
             wine_executable: String::new(),
             wine_debug: false,
+            wine_disable_ntsync: false,
+            wine_auto_install_dxvk: true,
         }
     }
 }
@@ -182,6 +186,8 @@ impl Config {
         if let Ok(val) = get_config_value("wine_prefix") { config.wine_prefix = val; }
         if let Ok(val) = get_config_value("wine_executable") { config.wine_executable = val; }
         if let Ok(val) = get_config_value("wine_debug") { config.wine_debug = val == "true"; }
+        if let Ok(val) = get_config_value("wine_disable_ntsync") { config.wine_disable_ntsync = val == "true"; }
+        if let Ok(val) = get_config_value("wine_auto_install_dxvk") { config.wine_auto_install_dxvk = val != "false"; }
         
         Ok(config)
     }
@@ -222,6 +228,8 @@ impl Config {
         let _ = set_config_value("wine_prefix", &self.wine_prefix);
         let _ = set_config_value("wine_executable", &self.wine_executable);
         let _ = set_config_value("wine_debug", if self.wine_debug { "true" } else { "false" });
+        let _ = set_config_value("wine_disable_ntsync", if self.wine_disable_ntsync { "true" } else { "false" });
+        let _ = set_config_value("wine_auto_install_dxvk", if self.wine_auto_install_dxvk { "true" } else { "false" });
         
         Ok(())
     }

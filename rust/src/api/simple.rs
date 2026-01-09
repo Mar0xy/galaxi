@@ -13,8 +13,8 @@ use super::dto::{
 use super::error::{MinigalaxyError, Result};
 use super::game::Game;
 use super::gog_api::GogApi;
-use super::installer::GameInstaller;
-use super::launcher;
+use super::installer::{GameInstaller, WineOptions};
+use super::launcher::{self, WineLaunchOptions};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -322,19 +322,33 @@ pub async fn start_download(game_id: i64) -> Result<String> {
     // Pre-compute installer paths for all files (using decoded filenames)
     let mut installer_paths: Vec<PathBuf> = Vec::new();
     let mut download_links: Vec<String> = Vec::new();
+    let mut needs_download: Vec<bool> = Vec::new();
     
     for file in &download_info.files {
         let real_link = api.get_real_download_link(&file.downlink).await?;
         let file_name = extract_filename_from_url(&real_link);
         let save_path = downloads_dir.join(&file_name);
+        
+        // Check if installer already exists (skip download if already downloaded)
+        let already_downloaded = save_path.exists();
+        
         installer_paths.push(save_path);
         download_links.push(real_link);
+        needs_download.push(!already_downloaded);
     }
     
     // Return the first installer path for installation
     let installer_path = installer_paths.first()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
+    
+    // Check if all files are already downloaded
+    let all_downloaded = needs_download.iter().all(|&n| !n);
+    
+    if all_downloaded {
+        // All files already downloaded, just return the path
+        return Ok(installer_path);
+    }
     
     // Spawn download in background task so we can return immediately and let UI poll for progress
     let download_manager = APP_STATE.download_manager.clone();
@@ -348,6 +362,11 @@ pub async fn start_download(game_id: i64) -> Result<String> {
     
     tokio::spawn(async move {
         for (idx, real_link) in links.into_iter().enumerate() {
+            // Skip if already downloaded
+            if !needs_download.get(idx).copied().unwrap_or(true) {
+                continue;
+            }
+            
             let save_path = paths.get(idx).cloned().unwrap_or_else(|| {
                 PathBuf::from(".downloads").join(extract_filename_from_url(&real_link))
             });
@@ -360,6 +379,7 @@ pub async fn start_download(game_id: i64) -> Result<String> {
             drop(dm);
             
             // Create a temporary download manager with shared active_downloads
+            // resume=true will check for .part files and resume from there
             let temp_dm = DownloadManager::with_shared_downloads(active_downloads);
             let _ = temp_dm.download_file(&real_link, &save_path, game_id, true).await;
         }
@@ -491,9 +511,14 @@ pub async fn install_game(game_id: i64, installer_path: String) -> Result<GameDt
     // Create install directory if it doesn't exist
     std::fs::create_dir_all(&config.install_dir)?;
     
-    // Pass the global wine executable from config as fallback
-    let wine_exe = if config.wine_executable.is_empty() { None } else { Some(config.wine_executable.as_str()) };
-    GameInstaller::install_game_with_wine(game, &installer, &config.install_dir, wine_exe).await?;
+    // Build wine options from config
+    let wine_options = WineOptions {
+        wine_executable: if config.wine_executable.is_empty() { None } else { Some(config.wine_executable.clone()) },
+        disable_ntsync: config.wine_disable_ntsync,
+        auto_install_dxvk: config.wine_auto_install_dxvk,
+    };
+    
+    GameInstaller::install_game_with_wine(game, &installer, &config.install_dir, wine_options).await?;
     
     // Update game in database
     games_db::save_game(game)?;
@@ -515,8 +540,12 @@ pub async fn install_dlc(game_id: i64, dlc_installer_path: String) -> Result<()>
         .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
     
     let config = APP_STATE.config.lock().await.clone();
-    let wine_exe = if config.wine_executable.is_empty() { None } else { Some(config.wine_executable.as_str()) };
-    GameInstaller::install_dlc_with_wine(game, &PathBuf::from(dlc_installer_path), wine_exe).await
+    let wine_options = WineOptions {
+        wine_executable: if config.wine_executable.is_empty() { None } else { Some(config.wine_executable.clone()) },
+        disable_ntsync: config.wine_disable_ntsync,
+        auto_install_dxvk: false, // Don't re-install dxvk for DLC
+    };
+    GameInstaller::install_dlc_with_wine(game, &PathBuf::from(dlc_installer_path), wine_options).await
 }
 
 // ============================================================================
@@ -535,7 +564,15 @@ pub async fn launch_game_async(game_id: i64) -> Result<LaunchResultDto> {
     let game = cache.get(&game_id)
         .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
     
-    let result = launcher::start_game(game)?;
+    let config = APP_STATE.config.lock().await.clone();
+    
+    // Build wine launch options from config
+    let wine_options = WineLaunchOptions {
+        wine_executable: if config.wine_executable.is_empty() { None } else { Some(config.wine_executable.clone()) },
+        disable_ntsync: config.wine_disable_ntsync,
+    };
+    
+    let result = launcher::start_game_with_options(game, wine_options)?;
     Ok(LaunchResultDto::from(result))
 }
 
@@ -672,6 +709,28 @@ pub async fn get_wine_debug() -> Result<bool> {
 pub async fn set_wine_debug(enabled: bool) -> Result<()> {
     let mut config = APP_STATE.config.lock().await;
     config.wine_debug = enabled;
+    config.save()
+}
+
+pub async fn get_wine_disable_ntsync() -> Result<bool> {
+    let config = APP_STATE.config.lock().await;
+    Ok(config.wine_disable_ntsync)
+}
+
+pub async fn set_wine_disable_ntsync(enabled: bool) -> Result<()> {
+    let mut config = APP_STATE.config.lock().await;
+    config.wine_disable_ntsync = enabled;
+    config.save()
+}
+
+pub async fn get_wine_auto_install_dxvk() -> Result<bool> {
+    let config = APP_STATE.config.lock().await;
+    Ok(config.wine_auto_install_dxvk)
+}
+
+pub async fn set_wine_auto_install_dxvk(enabled: bool) -> Result<()> {
+    let mut config = APP_STATE.config.lock().await;
+    config.wine_auto_install_dxvk = enabled;
     config.save()
 }
 

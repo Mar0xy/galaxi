@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1540197085;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1580459941;
 
 // Section: executor
 
@@ -2042,6 +2042,41 @@ fn wire__crate__api__simple__get_view_modes_impl(
         },
     )
 }
+fn wire__crate__api__simple__get_wine_auto_install_dxvk_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_wine_auto_install_dxvk",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
+                        let output_ok = crate::api::simple::get_wine_auto_install_dxvk().await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__simple__get_wine_debug_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2069,6 +2104,41 @@ fn wire__crate__api__simple__get_wine_debug_impl(
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || async move {
                         let output_ok = crate::api::simple::get_wine_debug().await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__simple__get_wine_disable_ntsync_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_wine_disable_ntsync",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
+                        let output_ok = crate::api::simple::get_wine_disable_ntsync().await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -2935,6 +3005,43 @@ fn wire__crate__api__simple__set_view_mode_impl(
         },
     )
 }
+fn wire__crate__api__simple__set_wine_auto_install_dxvk_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "set_wine_auto_install_dxvk",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_enabled = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::simple::set_wine_auto_install_dxvk(api_enabled).await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__simple__set_wine_debug_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2963,6 +3070,43 @@ fn wire__crate__api__simple__set_wine_debug_impl(
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || async move {
                         let output_ok = crate::api::simple::set_wine_debug(api_enabled).await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__simple__set_wine_disable_ntsync_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "set_wine_disable_ntsync",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_enabled = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::simple::set_wine_disable_ntsync(api_enabled).await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -3324,6 +3468,8 @@ impl SseDecode for crate::api::config::Config {
         let mut var_winePrefix = <String>::sse_decode(deserializer);
         let mut var_wineExecutable = <String>::sse_decode(deserializer);
         let mut var_wineDebug = <bool>::sse_decode(deserializer);
+        let mut var_wineDisableNtsync = <bool>::sse_decode(deserializer);
+        let mut var_wineAutoInstallDxvk = <bool>::sse_decode(deserializer);
         return crate::api::config::Config {
             locale: var_locale,
             lang: var_lang,
@@ -3346,6 +3492,8 @@ impl SseDecode for crate::api::config::Config {
             wine_prefix: var_winePrefix,
             wine_executable: var_wineExecutable,
             wine_debug: var_wineDebug,
+            wine_disable_ntsync: var_wineDisableNtsync,
+            wine_auto_install_dxvk: var_wineAutoInstallDxvk,
         };
     }
 }
@@ -3365,6 +3513,8 @@ impl SseDecode for crate::api::dto::ConfigDto {
         let mut var_winePrefix = <String>::sse_decode(deserializer);
         let mut var_wineExecutable = <String>::sse_decode(deserializer);
         let mut var_wineDebug = <bool>::sse_decode(deserializer);
+        let mut var_wineDisableNtsync = <bool>::sse_decode(deserializer);
+        let mut var_wineAutoInstallDxvk = <bool>::sse_decode(deserializer);
         return crate::api::dto::ConfigDto {
             locale: var_locale,
             lang: var_lang,
@@ -3378,6 +3528,8 @@ impl SseDecode for crate::api::dto::ConfigDto {
             wine_prefix: var_winePrefix,
             wine_executable: var_wineExecutable,
             wine_debug: var_wineDebug,
+            wine_disable_ntsync: var_wineDisableNtsync,
+            wine_auto_install_dxvk: var_wineAutoInstallDxvk,
         };
     }
 }
@@ -3880,45 +4032,69 @@ fn pde_ffi_dispatcher_primary_impl(
         }
         49 => wire__crate__api__simple__get_user_data_impl(port, ptr, rust_vec_len, data_len),
         50 => wire__crate__api__simple__get_view_mode_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__simple__get_wine_debug_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__simple__get_wine_executable_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__simple__get_wine_prefix_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__simple__init_app_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__simple__install_dlc_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__simple__install_game_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__simple__is_logged_in_impl(port, ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__simple__launch_game_impl(port, ptr, rust_vec_len, data_len),
-        61 => wire__crate__api__simple__launch_game_async_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__simple__login_with_code_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__simple__logout_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__simple__open_wine_config_impl(port, ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__simple__open_wine_config_global_impl(
+        52 => wire__crate__api__simple__get_wine_auto_install_dxvk_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        66 => wire__crate__api__simple__open_wine_regedit_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__simple__open_winetricks_impl(port, ptr, rust_vec_len, data_len),
-        68 => {
+        53 => wire__crate__api__simple__get_wine_debug_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__simple__get_wine_disable_ntsync_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        55 => wire__crate__api__simple__get_wine_executable_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__simple__get_wine_prefix_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__simple__init_app_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__simple__install_dlc_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__simple__install_game_impl(port, ptr, rust_vec_len, data_len),
+        61 => wire__crate__api__simple__is_logged_in_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__simple__launch_game_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__simple__launch_game_async_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__simple__login_with_code_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__simple__logout_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__simple__open_wine_config_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__simple__open_wine_config_global_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        68 => wire__crate__api__simple__open_wine_regedit_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__simple__open_winetricks_impl(port, ptr, rust_vec_len, data_len),
+        70 => {
             wire__crate__api__simple__open_winetricks_global_impl(port, ptr, rust_vec_len, data_len)
         }
-        69 => wire__crate__api__simple__pause_download_impl(port, ptr, rust_vec_len, data_len),
-        70 => wire__crate__api__simple__remove_account_impl(port, ptr, rust_vec_len, data_len),
-        71 => wire__crate__api__simple__set_dark_theme_impl(port, ptr, rust_vec_len, data_len),
-        72 => wire__crate__api__simple__set_install_dir_impl(port, ptr, rust_vec_len, data_len),
-        73 => wire__crate__api__simple__set_keep_installers_impl(port, ptr, rust_vec_len, data_len),
-        74 => wire__crate__api__simple__set_language_impl(port, ptr, rust_vec_len, data_len),
-        75 => {
+        71 => wire__crate__api__simple__pause_download_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__simple__remove_account_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__simple__set_dark_theme_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__simple__set_install_dir_impl(port, ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__simple__set_keep_installers_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__simple__set_language_impl(port, ptr, rust_vec_len, data_len),
+        77 => {
             wire__crate__api__simple__set_show_windows_games_impl(port, ptr, rust_vec_len, data_len)
         }
-        76 => wire__crate__api__simple__set_view_mode_impl(port, ptr, rust_vec_len, data_len),
-        77 => wire__crate__api__simple__set_wine_debug_impl(port, ptr, rust_vec_len, data_len),
-        78 => wire__crate__api__simple__set_wine_executable_impl(port, ptr, rust_vec_len, data_len),
-        79 => wire__crate__api__simple__set_wine_prefix_impl(port, ptr, rust_vec_len, data_len),
-        80 => wire__crate__api__simple__start_download_impl(port, ptr, rust_vec_len, data_len),
-        81 => wire__crate__api__simple__switch_account_impl(port, ptr, rust_vec_len, data_len),
-        82 => wire__crate__api__simple__uninstall_game_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__simple__set_view_mode_impl(port, ptr, rust_vec_len, data_len),
+        79 => wire__crate__api__simple__set_wine_auto_install_dxvk_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        80 => wire__crate__api__simple__set_wine_debug_impl(port, ptr, rust_vec_len, data_len),
+        81 => wire__crate__api__simple__set_wine_disable_ntsync_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        82 => wire__crate__api__simple__set_wine_executable_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__simple__set_wine_prefix_impl(port, ptr, rust_vec_len, data_len),
+        84 => wire__crate__api__simple__start_download_impl(port, ptr, rust_vec_len, data_len),
+        85 => wire__crate__api__simple__switch_account_impl(port, ptr, rust_vec_len, data_len),
+        86 => wire__crate__api__simple__uninstall_game_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -3991,7 +4167,7 @@ fn pde_ffi_dispatcher_sync_impl(
         47 => wire__crate__api__simple__get_supported_languages_impl(ptr, rust_vec_len, data_len),
         48 => wire__crate__api__simple__get_supported_locales_impl(ptr, rust_vec_len, data_len),
         51 => wire__crate__api__simple__get_view_modes_impl(ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__simple__greet_impl(ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__simple__greet_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -4119,6 +4295,8 @@ impl flutter_rust_bridge::IntoDart for crate::api::config::Config {
             self.wine_prefix.into_into_dart().into_dart(),
             self.wine_executable.into_into_dart().into_dart(),
             self.wine_debug.into_into_dart().into_dart(),
+            self.wine_disable_ntsync.into_into_dart().into_dart(),
+            self.wine_auto_install_dxvk.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4145,6 +4323,8 @@ impl flutter_rust_bridge::IntoDart for crate::api::dto::ConfigDto {
             self.wine_prefix.into_into_dart().into_dart(),
             self.wine_executable.into_into_dart().into_dart(),
             self.wine_debug.into_into_dart().into_dart(),
+            self.wine_disable_ntsync.into_into_dart().into_dart(),
+            self.wine_auto_install_dxvk.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4496,6 +4676,8 @@ impl SseEncode for crate::api::config::Config {
         <String>::sse_encode(self.wine_prefix, serializer);
         <String>::sse_encode(self.wine_executable, serializer);
         <bool>::sse_encode(self.wine_debug, serializer);
+        <bool>::sse_encode(self.wine_disable_ntsync, serializer);
+        <bool>::sse_encode(self.wine_auto_install_dxvk, serializer);
     }
 }
 
@@ -4514,6 +4696,8 @@ impl SseEncode for crate::api::dto::ConfigDto {
         <String>::sse_encode(self.wine_prefix, serializer);
         <String>::sse_encode(self.wine_executable, serializer);
         <bool>::sse_encode(self.wine_debug, serializer);
+        <bool>::sse_encode(self.wine_disable_ntsync, serializer);
+        <bool>::sse_encode(self.wine_auto_install_dxvk, serializer);
     }
 }
 

@@ -1,7 +1,12 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:minigalaxy_flutter/src/rust/api/simple.dart';
 import 'package:minigalaxy_flutter/src/rust/api/dto.dart';
 import 'package:minigalaxy_flutter/src/rust/frb_generated.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_linux_webview/flutter_linux_webview.dart';
 
 Future<void> main() async {
   await RustLib.init();
@@ -254,9 +259,56 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _login() async {
     setState(() => _isLoading = true);
-    // Show a dialog with login instructions and code input
     if (!mounted) return;
     
+    // Check if we're on Linux and can use webview
+    if (Platform.isLinux) {
+      await _showWebViewLogin();
+    } else {
+      await _showManualCodeLogin();
+    }
+    setState(() => _isLoading = false);
+  }
+  
+  Future<void> _showWebViewLogin() async {
+    final loginUrl = getLoginUrl();
+    final successUrl = getSuccessUrl();
+    
+    final code = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _LoginWebViewPage(
+          loginUrl: loginUrl,
+          successUrl: successUrl,
+        ),
+      ),
+    );
+    
+    if (code != null && code.isNotEmpty && mounted) {
+      try {
+        // Use authenticate with login code
+        final refreshToken = await authenticate(loginCode: code);
+        // Then add the current account
+        await addCurrentAccount(refreshToken: refreshToken);
+        if (mounted) {
+          // Refresh the app state
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const HomePage()),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Login failed: $e')),
+          );
+        }
+      }
+    }
+  }
+  
+  Future<void> _showManualCodeLogin() async {
+    // Fallback manual code entry for non-Linux platforms
     final codeController = TextEditingController();
     
     showDialog(
@@ -356,7 +408,140 @@ class _LoginPageState extends State<LoginPage> {
         );
       },
     );
-    setState(() => _isLoading = false);
+  }
+}
+
+/// WebView page for GOG login - only initialized when needed
+class _LoginWebViewPage extends StatefulWidget {
+  final String loginUrl;
+  final String successUrl;
+  
+  const _LoginWebViewPage({
+    required this.loginUrl,
+    required this.successUrl,
+  });
+  
+  @override
+  State<_LoginWebViewPage> createState() => _LoginWebViewPageState();
+}
+
+class _LoginWebViewPageState extends State<_LoginWebViewPage> with WidgetsBindingObserver {
+  final Completer<WebViewController> _controller = Completer<WebViewController>();
+  bool _isLoading = true;
+  bool _isInitialized = false;
+  Timer? _urlCheckTimer;
+  
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initWebView();
+  }
+  
+  Future<void> _initWebView() async {
+    try {
+      // Initialize the Linux WebView plugin
+      LinuxWebViewPlugin.initialize();
+      
+      // Configure WebView to use the Linux implementation
+      WebView.platform = LinuxWebView();
+      
+      setState(() {
+        _isInitialized = true;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to initialize webview: $e')),
+        );
+        Navigator.pop(context);
+      }
+    }
+  }
+  
+  Future<void> _checkUrl() async {
+    if (!_controller.isCompleted) return;
+    
+    try {
+      final controller = await _controller.future;
+      final currentUrl = await controller.currentUrl();
+      if (currentUrl != null && currentUrl.contains('code=')) {
+        // Extract the code from the URL
+        final uri = Uri.parse(currentUrl);
+        final code = uri.queryParameters['code'];
+        
+        if (code != null && code.isNotEmpty) {
+          _urlCheckTimer?.cancel();
+          if (mounted) {
+            Navigator.pop(context, code);
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore URL check errors
+    }
+  }
+  
+  @override
+  Future<AppExitResponse> didRequestAppExit() async {
+    await LinuxWebViewPlugin.terminate();
+    return AppExitResponse.exit;
+  }
+  
+  @override
+  void dispose() {
+    _urlCheckTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Login to GOG'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _isInitialized
+              ? WebView(
+                  initialUrl: widget.loginUrl,
+                  javascriptMode: JavascriptMode.unrestricted,
+                  onWebViewCreated: (WebViewController controller) {
+                    _controller.complete(controller);
+                    // Start polling for URL changes to detect successful login
+                    _urlCheckTimer = Timer.periodic(
+                      const Duration(milliseconds: 500),
+                      (_) => _checkUrl(),
+                    );
+                  },
+                  onPageFinished: (String url) {
+                    // Also check URL when page finishes loading
+                    _checkUrl();
+                  },
+                  navigationDelegate: (NavigationRequest request) {
+                    // Check if this is the redirect URL with code
+                    if (request.url.contains('code=')) {
+                      final uri = Uri.parse(request.url);
+                      final code = uri.queryParameters['code'];
+                      if (code != null && code.isNotEmpty) {
+                        _urlCheckTimer?.cancel();
+                        Navigator.pop(context, code);
+                        return NavigationDecision.prevent;
+                      }
+                    }
+                    return NavigationDecision.navigate;
+                  },
+                )
+              : const Center(child: Text('Failed to load webview')),
+    );
   }
 }
 
@@ -916,6 +1101,8 @@ class _SettingsPageState extends State<SettingsPage> {
   String _winePrefix = '';
   String _wineExecutable = '';
   bool _wineDebug = false;
+  bool _wineDisableNtsync = false;
+  bool _wineAutoInstallDxvk = true;
 
   @override
   void initState() {
@@ -933,6 +1120,8 @@ class _SettingsPageState extends State<SettingsPage> {
       final winePrefix = await getWinePrefix();
       final wineExecutable = await getWineExecutable();
       final wineDebug = await getWineDebug();
+      final wineDisableNtsync = await getWineDisableNtsync();
+      final wineAutoInstallDxvk = await getWineAutoInstallDxvk();
       setState(() {
         _installDir = installDir;
         _language = language;
@@ -942,6 +1131,8 @@ class _SettingsPageState extends State<SettingsPage> {
         _winePrefix = winePrefix;
         _wineExecutable = wineExecutable;
         _wineDebug = wineDebug;
+        _wineDisableNtsync = wineDisableNtsync;
+        _wineAutoInstallDxvk = wineAutoInstallDxvk;
       });
     } catch (e) {
       // Use defaults
@@ -1049,6 +1240,26 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (value) async {
               await setWineDebug(enabled: value);
               setState(() => _wineDebug = value);
+            },
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.sync_disabled),
+            title: const Text('Disable NTSYNC'),
+            subtitle: const Text('Set WINE_DISABLE_FAST_SYNC=1 to fix /dev/ntsync errors'),
+            value: _wineDisableNtsync,
+            onChanged: (value) async {
+              await setWineDisableNtsync(enabled: value);
+              setState(() => _wineDisableNtsync = value);
+            },
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.auto_fix_high),
+            title: const Text('Auto-install DXVK/VKD3D'),
+            subtitle: const Text('Install DXVK, VKD3D and fonts via winetricks'),
+            value: _wineAutoInstallDxvk,
+            onChanged: (value) async {
+              await setWineAutoInstallDxvk(enabled: value);
+              setState(() => _wineAutoInstallDxvk = value);
             },
           ),
           ListTile(

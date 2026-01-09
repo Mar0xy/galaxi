@@ -102,6 +102,11 @@ pub fn init_database() -> Result<()> {
         ("use_dark_theme", "false"),
         ("show_hidden_games", "false"),
         ("show_windows_games", "false"),
+        ("wine_prefix", ""),
+        ("wine_executable", ""),
+        ("wine_debug", "false"),
+        ("wine_disable_ntsync", "false"),
+        ("wine_auto_install_dxvk", "true"),
     ];
     
     for (key, value) in defaults {

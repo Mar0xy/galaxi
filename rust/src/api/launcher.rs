@@ -7,6 +7,14 @@ use super::config::BINARY_NAMES_TO_IGNORE;
 use super::error::{MinigalaxyError, Result};
 use super::game::Game;
 
+/// Wine launch options
+#[flutter_rust_bridge::frb(ignore)]
+#[derive(Debug, Clone, Default)]
+pub struct WineLaunchOptions {
+    pub wine_executable: Option<String>,
+    pub disable_ntsync: bool,
+}
+
 /// Launcher type for a game
 #[derive(Debug, Clone, PartialEq)]
 pub enum LauncherType {
@@ -30,9 +38,16 @@ pub struct LaunchResult {
 
 #[flutter_rust_bridge::frb(ignore)]
 pub fn get_wine_path(game: &Game) -> String {
+    get_wine_path_with_fallback(game, None)
+}
+
+#[flutter_rust_bridge::frb(ignore)]
+pub fn get_wine_path_with_fallback(game: &Game, global_wine_executable: Option<&str>) -> String {
+    // Priority: per-game setting > global setting > default "wine"
     game.get_info("custom_wine")
         .ok()
         .flatten()
+        .or_else(|| global_wine_executable.filter(|s| !s.is_empty()).map(|s| s.to_string()))
         .unwrap_or_else(|| "wine".to_string())
 }
 
@@ -339,6 +354,11 @@ fn set_fps_display(game: &Game) {
 
 #[flutter_rust_bridge::frb(ignore)]
 pub fn start_game(game: &Game) -> Result<LaunchResult> {
+    start_game_with_options(game, WineLaunchOptions::default())
+}
+
+#[flutter_rust_bridge::frb(ignore)]
+pub fn start_game_with_options(game: &Game, wine_options: WineLaunchOptions) -> Result<LaunchResult> {
     if !game.is_installed() {
         return Ok(LaunchResult {
             success: false,
@@ -364,6 +384,11 @@ pub fn start_game(game: &Game) -> Result<LaunchResult> {
     let mut cmd = Command::new(&exe_cmd[0]);
     for arg in exe_cmd.iter().skip(1) {
         cmd.arg(arg);
+    }
+    
+    // Apply NTSYNC disable if requested (for Wine games)
+    if wine_options.disable_ntsync {
+        cmd.env("WINE_DISABLE_FAST_SYNC", "1");
     }
     
     cmd.current_dir(&install_dir)

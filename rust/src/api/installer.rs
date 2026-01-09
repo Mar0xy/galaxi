@@ -4,6 +4,15 @@ use std::process::Command;
 use super::error::{MinigalaxyError, Result};
 use super::game::Game;
 
+/// Wine installation options
+#[flutter_rust_bridge::frb(ignore)]
+#[derive(Debug, Clone, Default)]
+pub struct WineOptions {
+    pub wine_executable: Option<String>,
+    pub disable_ntsync: bool,
+    pub auto_install_dxvk: bool,
+}
+
 /// Installer for managing game installations
 #[flutter_rust_bridge::frb(opaque)]
 pub struct GameInstaller;
@@ -15,14 +24,14 @@ impl GameInstaller {
         installer_path: &PathBuf,
         install_dir: &str,
     ) -> Result<()> {
-        Self::install_game_with_wine(game, installer_path, install_dir, None).await
+        Self::install_game_with_wine(game, installer_path, install_dir, WineOptions::default()).await
     }
     
     pub async fn install_game_with_wine(
         game: &mut Game,
         installer_path: &PathBuf,
         install_dir: &str,
-        global_wine_executable: Option<&str>,
+        wine_options: WineOptions,
     ) -> Result<()> {
         let install_path = PathBuf::from(install_dir).join(game.get_install_directory_name());
         
@@ -36,7 +45,7 @@ impl GameInstaller {
         if file_name.ends_with(".sh") {
             Self::install_linux_game(installer_path, &install_path)?;
         } else if file_name.ends_with(".exe") {
-            Self::install_windows_game(installer_path, &install_path, game, global_wine_executable)?;
+            Self::install_windows_game(installer_path, &install_path, game, &wine_options)?;
         } else {
             return Err(MinigalaxyError::InstallError(
                 format!("Unknown installer format: {}", file_name)
@@ -78,7 +87,7 @@ impl GameInstaller {
         installer_path: &PathBuf,
         install_path: &PathBuf,
         game: &Game,
-        global_wine_executable: Option<&str>,
+        wine_options: &WineOptions,
     ) -> Result<()> {
         // Verify installer file exists first
         if !installer_path.exists() {
@@ -106,7 +115,7 @@ impl GameInstaller {
         let wine_path = game.get_info("custom_wine")
             .ok()
             .flatten()
-            .or_else(|| global_wine_executable.filter(|s| !s.is_empty()).map(|s| s.to_string()))
+            .or_else(|| wine_options.wine_executable.as_ref().filter(|s| !s.is_empty()).cloned())
             .unwrap_or_else(|| "wine".to_string());
 
         // Check if Wine is available - support both absolute paths and PATH lookup
@@ -130,27 +139,44 @@ impl GameInstaller {
             )));
         }
 
+        // If auto_install_dxvk is enabled, run winetricks to install dxvk, vkd3d, and corefonts
+        if wine_options.auto_install_dxvk {
+            Self::setup_wine_prefix(&prefix_path, &wine_path, wine_options.disable_ntsync)?;
+        }
+
         // Get canonical path to installer to avoid any path resolution issues
         let canonical_installer = installer_path.canonicalize()
             .unwrap_or_else(|_| installer_path.clone());
 
-        let output = Command::new(&wine_path)
-            .env("WINEPREFIX", &prefix_path)
-            .arg(&canonical_installer)
+        // Build the wine command with optional environment variables
+        let mut cmd = Command::new(&wine_path);
+        cmd.env("WINEPREFIX", &prefix_path);
+        
+        // Disable NTSYNC if requested (fixes /dev/ntsync not found errors)
+        if wine_options.disable_ntsync {
+            cmd.env("WINE_DISABLE_FAST_SYNC", "1");
+        }
+        
+        cmd.arg(&canonical_installer)
             .arg("/VERYSILENT")
             .arg("/NORESTART")
             .arg("/SUPPRESSMSGBOXES")
-            .arg("/DIR=c:\\game")
-            .output();
+            .arg("/DIR=c:\\game");
+
+        let output = cmd.output();
 
         match output {
             Ok(o) if o.status.success() => Ok(()),
             Ok(o) => {
                 // First attempt failed, try without silent flags
-                let output = Command::new(&wine_path)
-                    .env("WINEPREFIX", &prefix_path)
-                    .arg(&canonical_installer)
-                    .output()
+                let mut retry_cmd = Command::new(&wine_path);
+                retry_cmd.env("WINEPREFIX", &prefix_path);
+                if wine_options.disable_ntsync {
+                    retry_cmd.env("WINE_DISABLE_FAST_SYNC", "1");
+                }
+                retry_cmd.arg(&canonical_installer);
+                
+                let output = retry_cmd.output()
                     .map_err(|e| MinigalaxyError::InstallError(format!(
                         "Wine failed to start: {}",
                         e
@@ -172,6 +198,92 @@ impl GameInstaller {
                 )))
             }
         }
+    }
+    
+    /// Download winetricks if not available and setup Wine prefix with dxvk, vkd3d, corefonts
+    fn setup_wine_prefix(prefix_path: &PathBuf, wine_path: &str, disable_ntsync: bool) -> Result<()> {
+        // Check if winetricks is installed, if not download it
+        let winetricks_path = Self::ensure_winetricks()?;
+        
+        // Run winetricks to install components
+        let components = ["corefonts", "dxvk", "vkd3d"];
+        
+        for component in &components {
+            let mut cmd = Command::new(&winetricks_path);
+            cmd.env("WINEPREFIX", prefix_path);
+            cmd.env("WINE", wine_path);
+            
+            if disable_ntsync {
+                cmd.env("WINE_DISABLE_FAST_SYNC", "1");
+            }
+            
+            // Run in unattended mode
+            cmd.arg("-q")
+               .arg(component);
+            
+            // Don't fail if winetricks fails - just log and continue
+            let _ = cmd.output();
+        }
+        
+        Ok(())
+    }
+    
+    /// Ensure winetricks is available, downloading if necessary
+    fn ensure_winetricks() -> Result<PathBuf> {
+        // First check if winetricks is in PATH
+        if let Ok(output) = Command::new("which").arg("winetricks").output() {
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                return Ok(PathBuf::from(path));
+            }
+        }
+        
+        // Download winetricks to cache directory
+        let cache_dir = super::config::get_cache_dir();
+        fs::create_dir_all(&cache_dir)?;
+        
+        let winetricks_path = cache_dir.join("winetricks");
+        
+        // If already downloaded and executable, use it
+        if winetricks_path.exists() {
+            return Ok(winetricks_path);
+        }
+        
+        // Download winetricks
+        let url = "https://raw.githubusercontent.com/Winetricks/winetricks/refs/heads/master/src/winetricks";
+        
+        let output = Command::new("curl")
+            .arg("-L")
+            .arg("-o")
+            .arg(&winetricks_path)
+            .arg(url)
+            .output()
+            .map_err(|e| MinigalaxyError::InstallError(format!("Failed to download winetricks: {}", e)))?;
+        
+        if !output.status.success() {
+            // Try wget as fallback
+            let output = Command::new("wget")
+                .arg("-O")
+                .arg(&winetricks_path)
+                .arg(url)
+                .output()
+                .map_err(|e| MinigalaxyError::InstallError(format!("Failed to download winetricks: {}", e)))?;
+            
+            if !output.status.success() {
+                return Err(MinigalaxyError::InstallError(
+                    "Failed to download winetricks. Please install it manually.".to_string()
+                ));
+            }
+        }
+        
+        // Make executable
+        Command::new("chmod")
+            .arg("+x")
+            .arg(&winetricks_path)
+            .output()
+            .map_err(|e| MinigalaxyError::InstallError(format!("Failed to make winetricks executable: {}", e)))?;
+        
+        Ok(winetricks_path)
     }
     
     /// Get the per-game Wine prefix path
@@ -200,13 +312,13 @@ impl GameInstaller {
         game: &Game,
         dlc_installer_path: &PathBuf,
     ) -> Result<()> {
-        Self::install_dlc_with_wine(game, dlc_installer_path, None).await
+        Self::install_dlc_with_wine(game, dlc_installer_path, WineOptions::default()).await
     }
     
     pub async fn install_dlc_with_wine(
         game: &Game,
         dlc_installer_path: &PathBuf,
-        global_wine_executable: Option<&str>,
+        wine_options: WineOptions,
     ) -> Result<()> {
         if !game.is_installed() {
             return Err(MinigalaxyError::InstallError(
@@ -223,7 +335,7 @@ impl GameInstaller {
         if file_name.ends_with(".sh") {
             Self::install_linux_game(dlc_installer_path, &install_path)?;
         } else if file_name.ends_with(".exe") {
-            Self::install_windows_game(dlc_installer_path, &install_path, game, global_wine_executable)?;
+            Self::install_windows_game(dlc_installer_path, &install_path, game, &wine_options)?;
         }
 
         Ok(())
