@@ -33,9 +33,10 @@ pub enum DownloadStatus {
 }
 
 /// Download manager for handling game downloads
+#[flutter_rust_bridge::frb(opaque)]
 pub struct DownloadManager {
     client: reqwest::Client,
-    pub active_downloads: Arc<Mutex<std::collections::HashMap<i64, DownloadProgress>>>,
+    active_downloads: Arc<Mutex<std::collections::HashMap<i64, DownloadProgress>>>,
 }
 
 #[flutter_rust_bridge::frb(ignore)]
@@ -54,6 +55,11 @@ impl DownloadManager {
             client: reqwest::Client::new(),
             active_downloads,
         }
+    }
+    
+    /// Get a clone of the active_downloads Arc for sharing
+    pub fn get_active_downloads_arc(&self) -> Arc<Mutex<std::collections::HashMap<i64, DownloadProgress>>> {
+        self.active_downloads.clone()
     }
 
     pub async fn get_active_downloads(&self) -> Vec<DownloadProgress> {

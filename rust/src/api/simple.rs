@@ -292,10 +292,10 @@ pub async fn check_for_update(game_id: i64) -> Result<bool> {
 // Download API
 // ============================================================================
 
-/// Download status for tracking progress
+/// Download status for tracking UI progress
 #[flutter_rust_bridge::frb(non_opaque)]
 #[derive(Debug, Clone)]
-pub enum DownloadStatus {
+pub enum UiDownloadStatus {
     Starting,
     Downloading { progress: f64, speed: String },
     Installing,
@@ -367,7 +367,7 @@ pub async fn start_download(game_id: i64) -> Result<String> {
             // This allows progress polling to work while download is in progress
             let dm = download_manager.lock().await;
             // Clone the active_downloads Arc so we can track progress without holding the manager lock
-            let active_downloads = dm.active_downloads.clone();
+            let active_downloads = dm.get_active_downloads_arc();
             drop(dm);
             
             // Create a temporary download manager with shared active_downloads
@@ -435,7 +435,7 @@ pub async fn cancel_download(game_id: i64) -> Result<()> {
 pub async fn get_download_progress(game_id: i64) -> Result<Option<DownloadProgressDto>> {
     let download_manager = APP_STATE.download_manager.lock().await;
     // Clone the active_downloads Arc so we can query it without holding the manager lock
-    let active_downloads = download_manager.active_downloads.clone();
+    let active_downloads = download_manager.get_active_downloads_arc();
     drop(download_manager);
     
     let downloads = active_downloads.lock().await;
@@ -445,7 +445,7 @@ pub async fn get_download_progress(game_id: i64) -> Result<Option<DownloadProgre
 pub async fn get_active_downloads() -> Result<Vec<DownloadProgressDto>> {
     let download_manager = APP_STATE.download_manager.lock().await;
     // Clone the active_downloads Arc so we can query it without holding the manager lock
-    let active_downloads = download_manager.active_downloads.clone();
+    let active_downloads = download_manager.get_active_downloads_arc();
     drop(download_manager);
     
     let downloads = active_downloads.lock().await;
