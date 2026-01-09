@@ -448,13 +448,39 @@ pub async fn get_active_downloads() -> Result<Vec<DownloadProgressDto>> {
 pub async fn install_game(game_id: i64, installer_path: String) -> Result<GameDto> {
     let installer = PathBuf::from(&installer_path);
     
-    // Verify installer exists
-    if !installer.exists() {
-        return Err(MinigalaxyError::InstallError(format!(
-            "Installer file not found: {}",
-            installer_path
-        )));
-    }
+    // Verify installer exists - try to get canonical path
+    let installer = if installer.exists() {
+        installer.canonicalize().unwrap_or(installer)
+    } else {
+        // Try with the raw path
+        if !installer.exists() {
+            // List files in the downloads directory to help debug
+            if let Some(parent) = installer.parent() {
+                if parent.exists() {
+                    let files: Vec<String> = std::fs::read_dir(parent)
+                        .ok()
+                        .map(|entries| {
+                            entries
+                                .filter_map(|e| e.ok())
+                                .map(|e| e.file_name().to_string_lossy().to_string())
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    
+                    return Err(MinigalaxyError::InstallError(format!(
+                        "Installer file not found: '{}'. Files in directory: {:?}",
+                        installer_path,
+                        files
+                    )));
+                }
+            }
+            return Err(MinigalaxyError::InstallError(format!(
+                "Installer file not found: {}",
+                installer_path
+            )));
+        }
+        installer
+    };
     
     let mut cache = APP_STATE.games_cache.lock().await;
     let game = cache.get_mut(&game_id)

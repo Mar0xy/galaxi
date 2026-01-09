@@ -70,6 +70,14 @@ impl GameInstaller {
         install_path: &PathBuf,
         game: &Game,
     ) -> Result<()> {
+        // Verify installer file exists first
+        if !installer_path.exists() {
+            return Err(MinigalaxyError::InstallError(format!(
+                "Installer file not found: {}",
+                installer_path.display()
+            )));
+        }
+        
         // Per-game Wine prefix is stored inside the game's install directory
         let prefix_path = install_path.join("wine_prefix");
         fs::create_dir_all(&prefix_path)?;
@@ -90,9 +98,25 @@ impl GameInstaller {
             .flatten()
             .unwrap_or_else(|| "wine".to_string());
 
+        // Check if Wine is available
+        let wine_check = Command::new("which")
+            .arg(&wine_path)
+            .output();
+        
+        if wine_check.is_err() || !wine_check.unwrap().status.success() {
+            return Err(MinigalaxyError::InstallError(format!(
+                "Wine not found: '{}'. Please install Wine to run Windows games.",
+                wine_path
+            )));
+        }
+
+        // Get canonical path to installer to avoid any path resolution issues
+        let canonical_installer = installer_path.canonicalize()
+            .unwrap_or_else(|_| installer_path.clone());
+
         let output = Command::new(&wine_path)
             .env("WINEPREFIX", &prefix_path)
-            .arg(installer_path)
+            .arg(&canonical_installer)
             .arg("/VERYSILENT")
             .arg("/NORESTART")
             .arg("/SUPPRESSMSGBOXES")
@@ -101,19 +125,31 @@ impl GameInstaller {
 
         match output {
             Ok(o) if o.status.success() => Ok(()),
-            _ => {
+            Ok(o) => {
+                // First attempt failed, try without silent flags
                 let output = Command::new(&wine_path)
                     .env("WINEPREFIX", &prefix_path)
-                    .arg(installer_path)
+                    .arg(&canonical_installer)
                     .output()
-                    .map_err(|e| MinigalaxyError::InstallError(e.to_string()))?;
+                    .map_err(|e| MinigalaxyError::InstallError(format!(
+                        "Wine failed to start: {}",
+                        e
+                    )))?;
 
                 if !output.status.success() {
-                    return Err(MinigalaxyError::InstallError(
-                        "Wine installation failed".to_string()
-                    ));
+                    let stderr = String::from_utf8_lossy(&o.stderr);
+                    return Err(MinigalaxyError::InstallError(format!(
+                        "Wine installation failed: {}",
+                        if stderr.is_empty() { "Unknown error" } else { &stderr }
+                    )));
                 }
                 Ok(())
+            }
+            Err(e) => {
+                Err(MinigalaxyError::InstallError(format!(
+                    "Failed to run Wine: {}",
+                    e
+                )))
             }
         }
     }
