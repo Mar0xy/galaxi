@@ -98,18 +98,8 @@ impl GameInstaller {
         }
         
         // Per-game Wine prefix is stored inside the game's install directory
+        // DO NOT create the prefix directory here - let Wine initialize it properly
         let prefix_path = install_path.join("wine_prefix");
-        fs::create_dir_all(&prefix_path)?;
-
-        let dosdevices_path = prefix_path.join("dosdevices").join("c:").join("game");
-        if !dosdevices_path.exists() {
-            if let Some(parent) = dosdevices_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            #[cfg(unix)]
-            std::os::unix::fs::symlink(install_path, &dosdevices_path)
-                .map_err(|e| MinigalaxyError::InstallError(e.to_string()))?;
-        }
 
         // Get Wine executable: per-game setting > global setting > default "wine"
         let wine_path = game.get_info("custom_wine")
@@ -202,6 +192,42 @@ impl GameInstaller {
     
     /// Download winetricks if not available and setup Wine prefix with dxvk, vkd3d, corefonts
     fn setup_wine_prefix(prefix_path: &PathBuf, wine_path: &str, disable_ntsync: bool) -> Result<()> {
+        // First, initialize the Wine prefix properly using wineboot
+        // This creates all the necessary directories and registry
+        let mut wineboot_cmd = Command::new(wine_path.replace("wine", "wineboot"));
+        wineboot_cmd.env("WINEPREFIX", prefix_path);
+        
+        if disable_ntsync {
+            wineboot_cmd.env("WINE_DISABLE_FAST_SYNC", "1");
+        }
+        
+        // Run wineboot --init to initialize the prefix
+        wineboot_cmd.arg("--init");
+        
+        match wineboot_cmd.output() {
+            Ok(output) if !output.status.success() => {
+                // Try with just wine instead of wineboot
+                let mut init_cmd = Command::new(wine_path);
+                init_cmd.env("WINEPREFIX", prefix_path);
+                if disable_ntsync {
+                    init_cmd.env("WINE_DISABLE_FAST_SYNC", "1");
+                }
+                init_cmd.arg("wineboot").arg("--init");
+                let _ = init_cmd.output();
+            }
+            Err(_) => {
+                // wineboot not found, try wine wineboot
+                let mut init_cmd = Command::new(wine_path);
+                init_cmd.env("WINEPREFIX", prefix_path);
+                if disable_ntsync {
+                    init_cmd.env("WINE_DISABLE_FAST_SYNC", "1");
+                }
+                init_cmd.arg("wineboot").arg("--init");
+                let _ = init_cmd.output();
+            }
+            _ => {}
+        }
+        
         // Check if winetricks is installed, if not download it
         let winetricks_path = Self::ensure_winetricks()?;
         
@@ -213,6 +239,7 @@ impl GameInstaller {
             cmd.env("WINEPREFIX", prefix_path);
             cmd.env("WINE", wine_path);
             
+            // Apply NTSYNC disable to winetricks as well
             if disable_ntsync {
                 cmd.env("WINE_DISABLE_FAST_SYNC", "1");
             }
