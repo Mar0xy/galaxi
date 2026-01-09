@@ -19,26 +19,14 @@ class MinigalaxyApp extends StatefulWidget {
   State<MinigalaxyApp> createState() => _MinigalaxyAppState();
 }
 
-class _MinigalaxyAppState extends State<MinigalaxyApp> with WidgetsBindingObserver {
+class _MinigalaxyAppState extends State<MinigalaxyApp> {
   bool _darkTheme = false;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _loadTheme();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  Future<AppExitResponse> didRequestAppExit() async {
-    return AppExitResponse.exit;
   }
 
   Future<void> _loadTheme() async {
