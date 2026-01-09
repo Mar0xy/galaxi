@@ -1,30 +1,13 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:minigalaxy_flutter/src/rust/api/simple.dart';
 import 'package:minigalaxy_flutter/src/rust/api/dto.dart';
 import 'package:minigalaxy_flutter/src/rust/frb_generated.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:flutter_linux_webview/flutter_linux_webview.dart';
-
-// Track whether Linux WebView has been initialized
-bool _linuxWebViewInitialized = false;
+import 'package:url_launcher/url_launcher.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Linux WebView plugin on Linux platform (must be done before runApp)
-  if (Platform.isLinux) {
-    try {
-      LinuxWebViewPlugin.initialize();
-      WebView.platform = LinuxWebView();
-      _linuxWebViewInitialized = true;
-    } catch (e) {
-      debugPrint('Warning: Failed to initialize LinuxWebViewPlugin: $e');
-    }
-  }
-  
   await RustLib.init();
   runApp(const MinigalaxyApp());
 }
@@ -55,14 +38,6 @@ class _MinigalaxyAppState extends State<MinigalaxyApp> with WidgetsBindingObserv
 
   @override
   Future<AppExitResponse> didRequestAppExit() async {
-    // Terminate Linux WebView plugin when app exits
-    if (Platform.isLinux && _linuxWebViewInitialized) {
-      try {
-        await LinuxWebViewPlugin.terminate();
-      } catch (e) {
-        debugPrint('Warning: Failed to terminate LinuxWebViewPlugin: $e');
-      }
-    }
     return AppExitResponse.exit;
   }
 
@@ -214,40 +189,8 @@ class _HomePageState extends State<HomePage> {
       accounts: _accounts,
       onThemeChanged: widget.onThemeChanged,
       onAddAccount: () async {
-        // Navigate to login flow to add another account
-        if (Platform.isLinux && _linuxWebViewInitialized) {
-          final loginUrl = getLoginUrl();
-          final successUrl = getSuccessUrl();
-          
-          final code = await Navigator.push<String>(
-            context,
-            MaterialPageRoute(
-              builder: (context) => _LoginWebViewPage(
-                loginUrl: loginUrl,
-                successUrl: successUrl,
-              ),
-            ),
-          );
-          
-          if (code != null && code.isNotEmpty && mounted) {
-            try {
-              final refreshToken = await authenticate(loginCode: code);
-              await addCurrentAccount(refreshToken: refreshToken);
-              // Refresh to show new account
-              await _checkLoginStatus();
-            } catch (e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to add account: $e')),
-                );
-              }
-            }
-          }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Add account not available')),
-          );
-        }
+        // Show login dialog to add another account
+        await _showLoginDialog(context, isAddingAccount: true);
       },
       onLogout: () async {
         await logout();
@@ -258,6 +201,117 @@ class _HomePageState extends State<HomePage> {
         });
       },
     );
+  }
+  
+  Future<void> _showLoginDialog(BuildContext context, {bool isAddingAccount = false}) async {
+    final codeController = TextEditingController();
+    final loginUrl = getLoginUrl();
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        bool isSubmitting = false;
+        String? errorMessage;
+        
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text(isAddingAccount ? 'Add GOG Account' : 'Login to GOG'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('1. Click the button below to open the login page:'),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final uri = Uri.parse(loginUrl);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    icon: const Icon(Icons.open_in_browser),
+                    label: const Text('Open GOG Login'),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('2. Login with your GOG account'),
+                  const SizedBox(height: 8),
+                  const Text('3. After login, you\'ll be redirected to a blank page'),
+                  const SizedBox(height: 8),
+                  const Text('4. Copy the code from the URL (after "code=")'),
+                  const SizedBox(height: 16),
+                  const Text('5. Paste the code below:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: codeController,
+                    decoration: InputDecoration(
+                      hintText: 'Paste authorization code here',
+                      border: const OutlineInputBorder(),
+                      errorText: errorMessage,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.paste),
+                        tooltip: 'Paste from clipboard',
+                        onPressed: () async {
+                          final data = await Clipboard.getData(Clipboard.kTextPlain);
+                          if (data?.text != null) {
+                            codeController.text = data!.text!;
+                          }
+                        },
+                      ),
+                    ),
+                    autofocus: true,
+                  ),
+                  if (isSubmitting)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSubmitting ? null : () async {
+                  final code = codeController.text.trim();
+                  if (code.isEmpty) {
+                    setDialogState(() => errorMessage = 'Please enter the authorization code');
+                    return;
+                  }
+                  
+                  setDialogState(() {
+                    isSubmitting = true;
+                    errorMessage = null;
+                  });
+                  
+                  try {
+                    final refreshToken = await authenticate(loginCode: code);
+                    await addCurrentAccount(refreshToken: refreshToken);
+                    if (context.mounted) {
+                      Navigator.pop(context, true); // Success
+                    }
+                  } catch (e) {
+                    setDialogState(() {
+                      isSubmitting = false;
+                      errorMessage = 'Login failed: $e';
+                    });
+                  }
+                },
+                child: const Text('Login'),
+              ),
+            ],
+          ),
+        );
+      },
+    ).then((success) async {
+      if (success == true) {
+        await _checkLoginStatus();
+      }
+    });
   }
 }
 
@@ -314,15 +368,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
               ),
-            const SizedBox(height: 24),
-            const Text(
-              'Login URL:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            SelectableText(
-              getLoginUrl(),
-              style: const TextStyle(fontSize: 12),
-            ),
           ],
         ),
       ),
@@ -331,57 +376,14 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _login() async {
     setState(() => _isLoading = true);
-    if (!mounted) return;
     
-    // Check if we're on Linux and can use webview
-    if (Platform.isLinux) {
-      await _showWebViewLogin();
-    } else {
-      await _showManualCodeLogin();
-    }
-    setState(() => _isLoading = false);
-  }
-  
-  Future<void> _showWebViewLogin() async {
-    final loginUrl = getLoginUrl();
-    final successUrl = getSuccessUrl();
-    
-    final code = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => _LoginWebViewPage(
-          loginUrl: loginUrl,
-          successUrl: successUrl,
-        ),
-      ),
-    );
-    
-    if (code != null && code.isNotEmpty && mounted) {
-      try {
-        // Use authenticate with login code
-        final refreshToken = await authenticate(loginCode: code);
-        // Then add the current account
-        await addCurrentAccount(refreshToken: refreshToken);
-        if (mounted) {
-          // Refresh the app state
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const HomePage()),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Login failed: $e')),
-          );
-        }
-      }
-    }
-  }
-  
-  Future<void> _showManualCodeLogin() async {
-    // Fallback manual code entry for non-Linux platforms
     final codeController = TextEditingController();
+    final loginUrl = getLoginUrl();
+    
+    if (!mounted) {
+      setState(() => _isLoading = false);
+      return;
+    }
     
     showDialog(
       context: context,
@@ -392,31 +394,32 @@ class _LoginPageState extends State<LoginPage> {
         
         return StatefulBuilder(
           builder: (context, setDialogState) => AlertDialog(
-            title: const Text('Login Instructions'),
+            title: const Text('Login to GOG'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('1. Open this URL in a browser:'),
+                  const Text('1. Click the button below to open the login page:'),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: SelectableText(
-                      getLoginUrl(),
-                      style: const TextStyle(fontSize: 11),
-                    ),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final uri = Uri.parse(loginUrl);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    icon: const Icon(Icons.open_in_browser),
+                    label: const Text('Open GOG Login'),
                   ),
                   const SizedBox(height: 16),
                   const Text('2. Login with your GOG account'),
                   const SizedBox(height: 8),
-                  const Text('3. After login, you will be redirected. Copy the code from the URL'),
+                  const Text('3. After login, you\'ll be redirected to a blank page'),
+                  const SizedBox(height: 8),
+                  const Text('4. Copy the code from the URL (after "code=")'),
                   const SizedBox(height: 16),
-                  const Text('4. Enter the code below:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('5. Paste the code below:', style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   TextField(
                     controller: codeController,
@@ -424,6 +427,16 @@ class _LoginPageState extends State<LoginPage> {
                       hintText: 'Paste authorization code here',
                       border: const OutlineInputBorder(),
                       errorText: errorMessage,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.paste),
+                        tooltip: 'Paste from clipboard',
+                        onPressed: () async {
+                          final data = await Clipboard.getData(Clipboard.kTextPlain);
+                          if (data?.text != null) {
+                            codeController.text = data!.text!;
+                          }
+                        },
+                      ),
                     ),
                     autofocus: true,
                   ),
@@ -437,7 +450,9 @@ class _LoginPageState extends State<LoginPage> {
             ),
             actions: [
               TextButton(
-                onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                onPressed: isSubmitting ? null : () {
+                  Navigator.pop(context, false);
+                },
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
@@ -454,17 +469,10 @@ class _LoginPageState extends State<LoginPage> {
                   });
                   
                   try {
-                    // Use authenticate with login code
                     final refreshToken = await authenticate(loginCode: code);
-                    // Then add the current account
                     await addCurrentAccount(refreshToken: refreshToken);
                     if (context.mounted) {
-                      Navigator.pop(context);
-                      // Refresh the app state
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const HomePage()),
-                      );
+                      Navigator.pop(context, true); // Success
                     }
                   } catch (e) {
                     setDialogState(() {
@@ -479,141 +487,16 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
       },
-    );
-  }
-}
-
-/// WebView page for GOG login - only initialized when needed
-class _LoginWebViewPage extends StatefulWidget {
-  final String loginUrl;
-  final String successUrl;
-  
-  const _LoginWebViewPage({
-    required this.loginUrl,
-    required this.successUrl,
-  });
-  
-  @override
-  State<_LoginWebViewPage> createState() => _LoginWebViewPageState();
-}
-
-class _LoginWebViewPageState extends State<_LoginWebViewPage> {
-  final Completer<WebViewController> _controller = Completer<WebViewController>();
-  bool _isLoading = true;
-  bool _isInitialized = false;
-  Timer? _urlCheckTimer;
-  
-  @override
-  void initState() {
-    super.initState();
-    _initWebView();
-  }
-  
-  Future<void> _initWebView() async {
-    // Only initialize Linux WebView on Linux platform
-    if (!Platform.isLinux) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('WebView login only supported on Linux')),
+    ).then((success) {
+      setState(() => _isLoading = false);
+      if (success == true && mounted) {
+        // Refresh the app state
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
         );
-        Navigator.pop(context);
       }
-      return;
-    }
-    
-    // Check if WebView was already initialized in main()
-    if (!_linuxWebViewInitialized) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('WebView plugin failed to initialize at startup')),
-        );
-        Navigator.pop(context);
-      }
-      return;
-    }
-    
-    // WebView is already initialized in main(), just mark as ready
-    setState(() {
-      _isInitialized = true;
-      _isLoading = false;
     });
-  }
-  
-  Future<void> _checkUrl() async {
-    if (!_controller.isCompleted) return;
-    
-    try {
-      final controller = await _controller.future;
-      final currentUrl = await controller.currentUrl();
-      if (currentUrl != null && currentUrl.contains('code=')) {
-        // Extract the code from the URL
-        final uri = Uri.parse(currentUrl);
-        final code = uri.queryParameters['code'];
-        
-        if (code != null && code.isNotEmpty) {
-          _urlCheckTimer?.cancel();
-          if (mounted) {
-            Navigator.pop(context, code);
-          }
-        }
-      }
-    } catch (e) {
-      // Ignore URL check errors
-    }
-  }
-  
-  @override
-  void dispose() {
-    _urlCheckTimer?.cancel();
-    super.dispose();
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Login to GOG'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _isInitialized
-              ? WebView(
-                  initialUrl: widget.loginUrl,
-                  javascriptMode: JavascriptMode.unrestricted,
-                  onWebViewCreated: (WebViewController controller) {
-                    _controller.complete(controller);
-                    // Start polling for URL changes to detect successful login
-                    _urlCheckTimer = Timer.periodic(
-                      const Duration(milliseconds: 500),
-                      (_) => _checkUrl(),
-                    );
-                  },
-                  onPageFinished: (String url) {
-                    // Also check URL when page finishes loading
-                    _checkUrl();
-                  },
-                  navigationDelegate: (NavigationRequest request) {
-                    // Check if this is the redirect URL with code
-                    if (request.url.contains('code=')) {
-                      final uri = Uri.parse(request.url);
-                      final code = uri.queryParameters['code'];
-                      if (code != null && code.isNotEmpty) {
-                        _urlCheckTimer?.cancel();
-                        Navigator.pop(context, code);
-                        return NavigationDecision.prevent;
-                      }
-                    }
-                    return NavigationDecision.navigate;
-                  },
-                )
-              : const Center(child: Text('Failed to load webview')),
-    );
   }
 }
 
