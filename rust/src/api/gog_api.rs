@@ -337,15 +337,44 @@ impl GogApi {
     }
 
     pub async fn get_user_profile(&self, user_id: &str) -> Result<UserProfile> {
-        let url = format!("https://users.gog.com/users/{}", user_id);
-        // users.gog.com doesn't require authentication
-        let response = self.client
+        // Use embed.gog.com/users/info/{id} endpoint
+        let url = format!("https://embed.gog.com/users/info/{}", user_id);
+        
+        let token = self.active_token.as_ref()
+            .ok_or_else(|| MinigalaxyError::AuthError("Not authenticated".to_string()))?;
+        
+        // Parse the response as JSON Value to extract avatars
+        let response: serde_json::Value = self.client
             .get(&url)
+            .header("Authorization", format!("Bearer {}", token))
             .send()
             .await?
-            .json::<UserProfile>()
+            .json()
             .await?;
-        Ok(response)
+        
+        let username = response.get("username")
+            .and_then(|u| u.as_str())
+            .unwrap_or("Unknown")
+            .to_string();
+        
+        // Extract avatars object from the response
+        let avatars = response.get("avatars").and_then(|a| {
+            Some(UserAvatars {
+                small: a.get("small").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                small2x: a.get("small2x").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                medium: a.get("medium").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                medium2x: a.get("medium2x").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                large: a.get("large").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                large2x: a.get("large2x").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            })
+        });
+        
+        Ok(UserProfile {
+            id: user_id.to_string(),
+            username,
+            created_date: None,
+            avatars,
+        })
     }
 
     pub async fn get_download_info(&self, game: &Game, os: &str) -> Result<DownloadInfo> {

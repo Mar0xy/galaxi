@@ -70,7 +70,8 @@ impl GameInstaller {
         install_path: &PathBuf,
         game: &Game,
     ) -> Result<()> {
-        let prefix_path = install_path.join("prefix");
+        // Per-game Wine prefix is stored inside the game's install directory
+        let prefix_path = install_path.join("wine_prefix");
         fs::create_dir_all(&prefix_path)?;
 
         let dosdevices_path = prefix_path.join("dosdevices").join("c:").join("game");
@@ -83,6 +84,7 @@ impl GameInstaller {
                 .map_err(|e| MinigalaxyError::InstallError(e.to_string()))?;
         }
 
+        // Get per-game Wine executable if set, otherwise use default "wine"
         let wine_path = game.get_info("custom_wine")
             .ok()
             .flatten()
@@ -114,6 +116,11 @@ impl GameInstaller {
                 Ok(())
             }
         }
+    }
+    
+    /// Get the per-game Wine prefix path
+    pub fn get_game_wine_prefix(game: &Game) -> PathBuf {
+        PathBuf::from(&game.install_dir).join("wine_prefix")
     }
 
     pub fn uninstall_game(game: &Game) -> Result<()> {

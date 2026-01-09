@@ -64,7 +64,7 @@ pub fn determine_launcher_type(game: &Game) -> LauncherType {
         return LauncherType::StartScript;
     }
     
-    if install_dir.join("prefix").exists() {
+    if install_dir.join("wine_prefix").exists() {
         if which::which("wine").is_ok() {
             return LauncherType::Wine;
         }
@@ -145,7 +145,7 @@ pub fn get_execute_command(game: &Game) -> Result<Vec<String>> {
 
 fn get_wine_start_command(game: &Game) -> Result<Vec<String>> {
     let install_dir = PathBuf::from(&game.install_dir);
-    let prefix = install_dir.join("prefix");
+    let prefix = install_dir.join("wine_prefix");
     let _wine = get_wine_path(game);
     
     if install_dir.join("start.sh").exists() {
@@ -161,7 +161,7 @@ fn get_wine_start_command(game: &Game) -> Result<Vec<String>> {
 
 fn get_windows_exe_cmd(game: &Game) -> Result<Vec<String>> {
     let install_dir = PathBuf::from(&game.install_dir);
-    let prefix = install_dir.join("prefix");
+    let prefix = install_dir.join("wine_prefix");
     let wine = get_wine_path(game);
     
     let goggame_file = install_dir.join(format!("goggame-{}.info", game.id));
@@ -394,7 +394,7 @@ pub fn config_game(game: &Game) -> Result<()> {
         return Err(MinigalaxyError::LaunchError("Game is not installed".to_string()));
     }
     
-    let prefix = PathBuf::from(&game.install_dir).join("prefix");
+    let prefix = PathBuf::from(&game.install_dir).join("wine_prefix");
     let wine = get_wine_path(game);
     
     Command::new("env")
@@ -413,7 +413,7 @@ pub fn regedit_game(game: &Game) -> Result<()> {
         return Err(MinigalaxyError::LaunchError("Game is not installed".to_string()));
     }
     
-    let prefix = PathBuf::from(&game.install_dir).join("prefix");
+    let prefix = PathBuf::from(&game.install_dir).join("wine_prefix");
     let wine = get_wine_path(game);
     
     Command::new("env")
@@ -432,7 +432,7 @@ pub fn winetricks_game(game: &Game) -> Result<()> {
         return Err(MinigalaxyError::LaunchError("Game is not installed".to_string()));
     }
     
-    let prefix = PathBuf::from(&game.install_dir).join("prefix");
+    let prefix = PathBuf::from(&game.install_dir).join("wine_prefix");
     
     Command::new("env")
         .arg(format!("WINEPREFIX={}", prefix.to_string_lossy()))

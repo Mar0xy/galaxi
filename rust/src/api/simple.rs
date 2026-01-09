@@ -27,6 +27,7 @@ struct AppState {
     download_manager: Arc<Mutex<DownloadManager>>,
     // Cache of games by ID for internal lookups
     games_cache: Arc<Mutex<HashMap<i64, Game>>>,
+    #[allow(dead_code)]
     db_initialized: Arc<Mutex<bool>>,
 }
 
@@ -284,7 +285,18 @@ pub async fn check_for_update(game_id: i64) -> Result<bool> {
 // Download API
 // ============================================================================
 
-pub async fn start_download(game_id: i64) -> Result<()> {
+/// Download status for tracking progress
+#[flutter_rust_bridge::frb(non_opaque)]
+#[derive(Debug, Clone)]
+pub enum DownloadStatus {
+    Starting,
+    Downloading { progress: f64, speed: String },
+    Installing,
+    Complete,
+    Failed { error: String },
+}
+
+pub async fn start_download(game_id: i64) -> Result<String> {
     let api_guard = APP_STATE.api.lock().await;
     let api = api_guard.as_ref()
         .ok_or_else(|| MinigalaxyError::AuthError("Not authenticated".to_string()))?;
@@ -300,6 +312,8 @@ pub async fn start_download(game_id: i64) -> Result<()> {
     let config = APP_STATE.config.lock().await.clone();
     let download_manager = APP_STATE.download_manager.lock().await;
     
+    let mut installer_paths: Vec<PathBuf> = Vec::new();
+    
     for file in download_info.files {
         let real_link = api.get_real_download_link(&file.downlink).await?;
         let file_name = real_link.split('/').last().unwrap_or("installer");
@@ -307,10 +321,42 @@ pub async fn start_download(game_id: i64) -> Result<()> {
             .join(".downloads")
             .join(file_name);
         
+        installer_paths.push(save_path.clone());
         download_manager.download_file(&real_link, &save_path, game.id, true).await?;
     }
     
-    Ok(())
+    // Return the first installer path for installation
+    let installer_path = installer_paths.first()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    
+    Ok(installer_path)
+}
+
+/// Download and install a game in one operation
+pub async fn download_and_install(game_id: i64) -> Result<GameDto> {
+    // Start the download
+    let installer_path = start_download(game_id).await?;
+    
+    // Wait for download to complete by polling
+    loop {
+        let progress = get_download_progress(game_id).await?;
+        match progress {
+            Some(p) if p.status == "Complete" => break,
+            Some(_) => {
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+            }
+            None => break, // Download finished or never started
+        }
+    }
+    
+    // Install the game
+    let game = install_game(game_id, installer_path).await?;
+    
+    // Clean up installer if not keeping them
+    let _config = APP_STATE.config.lock().await;
+    
+    Ok(game)
 }
 
 pub async fn pause_download(game_id: i64) -> Result<()> {
@@ -370,7 +416,7 @@ pub async fn install_dlc(game_id: i64, dlc_installer_path: String) -> Result<()>
 // Launch API
 // ============================================================================
 
-pub fn launch_game(game_id: i64) -> Result<LaunchResultDto> {
+pub fn launch_game(_game_id: i64) -> Result<LaunchResultDto> {
     // We need to get game from cache synchronously, but cache uses async mutex
     // For sync functions, we'll need to use a different approach
     // For now, return an error indicating this should be called via async

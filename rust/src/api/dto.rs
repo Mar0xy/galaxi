@@ -110,6 +110,9 @@ pub struct ConfigDto {
     pub use_dark_theme: bool,
     pub show_hidden_games: bool,
     pub show_windows_games: bool,
+    pub wine_prefix: String,
+    pub wine_executable: String,
+    pub wine_debug: bool,
 }
 
 // Conversion implementations
@@ -277,6 +280,9 @@ impl From<&Config> for ConfigDto {
             use_dark_theme: config.use_dark_theme,
             show_hidden_games: config.show_hidden_games,
             show_windows_games: config.show_windows_games,
+            wine_prefix: config.wine_prefix.clone(),
+            wine_executable: config.wine_executable.clone(),
+            wine_debug: config.wine_debug,
         }
     }
 }

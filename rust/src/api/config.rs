@@ -159,7 +159,7 @@ impl Config {
     }
 
     pub fn load_from_db() -> Result<Self> {
-        use super::database::{get_config_value, set_config_value};
+        use super::database::get_config_value;
         
         let mut config = Config::default();
         
