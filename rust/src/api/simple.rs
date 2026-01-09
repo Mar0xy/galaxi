@@ -354,8 +354,16 @@ pub async fn start_download(game_id: i64) -> Result<String> {
                 .join(".downloads")
                 .join(file_name);
             
+            // Get the download manager, then drop the lock before starting the download
+            // This allows progress polling to work while download is in progress
             let dm = download_manager.lock().await;
-            let _ = dm.download_file(&real_link, &save_path, game_id, true).await;
+            // Clone the active_downloads Arc so we can track progress without holding the manager lock
+            let active_downloads = dm.active_downloads.clone();
+            drop(dm);
+            
+            // Create a temporary download manager with shared active_downloads
+            let temp_dm = DownloadManager::with_shared_downloads(active_downloads);
+            let _ = temp_dm.download_file(&real_link, &save_path, game_id, true).await;
         }
     });
     
@@ -417,12 +425,22 @@ pub async fn cancel_download(game_id: i64) -> Result<()> {
 
 pub async fn get_download_progress(game_id: i64) -> Result<Option<DownloadProgressDto>> {
     let download_manager = APP_STATE.download_manager.lock().await;
-    Ok(download_manager.get_progress(game_id).await.map(|p| DownloadProgressDto::from(&p)))
+    // Clone the active_downloads Arc so we can query it without holding the manager lock
+    let active_downloads = download_manager.active_downloads.clone();
+    drop(download_manager);
+    
+    let downloads = active_downloads.lock().await;
+    Ok(downloads.get(&game_id).map(|p| DownloadProgressDto::from(p)))
 }
 
 pub async fn get_active_downloads() -> Result<Vec<DownloadProgressDto>> {
     let download_manager = APP_STATE.download_manager.lock().await;
-    Ok(download_manager.get_active_downloads().await.iter().map(DownloadProgressDto::from).collect())
+    // Clone the active_downloads Arc so we can query it without holding the manager lock
+    let active_downloads = download_manager.active_downloads.clone();
+    drop(download_manager);
+    
+    let downloads = active_downloads.lock().await;
+    Ok(downloads.values().map(DownloadProgressDto::from).collect())
 }
 
 // ============================================================================

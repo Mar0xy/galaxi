@@ -1232,12 +1232,13 @@ class _InstallButtonState extends State<_InstallButton> {
       // Start download and get installer path
       final installerPath = await startDownload(gameId: widget.gameId);
       
-      // Small delay to let download manager start tracking
-      await Future.delayed(const Duration(milliseconds: 200));
+      // Give more time for download manager to start tracking progress
+      await Future.delayed(const Duration(seconds: 1));
       
       // Poll for download progress
       bool downloadComplete = false;
       int nullProgressCount = 0;
+      const maxNullCount = 60; // 30 seconds of null progress before giving up
       
       while (!downloadComplete) {
         await Future.delayed(const Duration(milliseconds: 500));
@@ -1266,17 +1267,18 @@ class _InstallButtonState extends State<_InstallButton> {
               throw Exception('Download cancelled');
             }
           } else {
-            // Progress might be null if download finished or not yet started
+            // Progress is null - download either hasn't started or has finished
             nullProgressCount++;
-            if (nullProgressCount > 10) {
-              // After 5 seconds of no progress, assume complete
-              downloadComplete = true;
+            // Only assume complete if we've seen some progress before
+            // (null at the very start means download hasn't begun yet)
+            if (nullProgressCount > maxNullCount) {
+              throw Exception('Download timed out - no progress received');
             }
           }
         } catch (e) {
           // If getting progress fails, continue polling
           nullProgressCount++;
-          if (nullProgressCount > 10) {
+          if (nullProgressCount > maxNullCount) {
             throw Exception('Failed to get download progress: $e');
           }
         }
