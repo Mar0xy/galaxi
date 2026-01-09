@@ -342,7 +342,13 @@ pub async fn download_and_install(game_id: i64) -> Result<GameDto> {
     loop {
         let progress = get_download_progress(game_id).await?;
         match progress {
-            Some(p) if p.status == "Complete" => break,
+            Some(p) if p.status == "Completed" => break,
+            Some(p) if p.status == "Failed" => {
+                return Err(MinigalaxyError::DownloadError("Download failed".to_string()));
+            }
+            Some(p) if p.status == "Cancelled" => {
+                return Err(MinigalaxyError::DownloadError("Download cancelled".to_string()));
+            }
             Some(_) => {
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
             }
@@ -354,7 +360,16 @@ pub async fn download_and_install(game_id: i64) -> Result<GameDto> {
     let game = install_game(game_id, installer_path).await?;
     
     // Clean up installer if not keeping them
-    let _config = APP_STATE.config.lock().await;
+    let config = APP_STATE.config.lock().await;
+    if !config.keep_installers {
+        // Delete the installer
+        let installer = std::path::PathBuf::from(&game.install_dir)
+            .parent()
+            .map(|p| p.join(".downloads"));
+        if let Some(downloads_dir) = installer {
+            let _ = std::fs::remove_dir_all(&downloads_dir);
+        }
+    }
     
     Ok(game)
 }

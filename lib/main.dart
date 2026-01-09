@@ -859,32 +859,15 @@ class _LibraryPageState extends State<LibraryPage> {
                     ),
                   ),
                 ] else ...[
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      try {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Starting download and installation...')),
-                        );
-                        await downloadAndInstall(gameId: game.id);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Installation complete!')),
-                          );
-                          Navigator.pop(context);
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to install: $e')),
-                          );
-                        }
+                  _InstallButton(
+                    gameId: game.id,
+                    gameName: game.name,
+                    onInstallComplete: () {
+                      if (mounted) {
+                        Navigator.pop(context);
+                        _loadLibrary();
                       }
                     },
-                    icon: const Icon(Icons.download),
-                    label: const Text('Install'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                    ),
                   ),
                 ],
               ],
@@ -1213,6 +1196,169 @@ class _SettingsPageState extends State<SettingsPage> {
     if (result != null) {
       await setWineExecutable(executable: result);
       setState(() => _wineExecutable = result);
+    }
+  }
+}
+
+/// A stateful install button that shows download/install progress directly
+class _InstallButton extends StatefulWidget {
+  final int gameId;
+  final String gameName;
+  final VoidCallback? onInstallComplete;
+
+  const _InstallButton({
+    required this.gameId,
+    required this.gameName,
+    this.onInstallComplete,
+  });
+
+  @override
+  State<_InstallButton> createState() => _InstallButtonState();
+}
+
+class _InstallButtonState extends State<_InstallButton> {
+  String _status = 'idle'; // idle, downloading, installing, complete, error
+  double _progress = 0.0;
+  String? _errorMessage;
+
+  Future<void> _startInstall() async {
+    setState(() {
+      _status = 'downloading';
+      _progress = 0.0;
+      _errorMessage = null;
+    });
+
+    try {
+      // Start download and get installer path
+      final installerPath = await startDownload(gameId: widget.gameId);
+      
+      // Poll for download progress
+      bool downloadComplete = false;
+      while (!downloadComplete) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        try {
+          final progress = await getDownloadProgress(gameId: widget.gameId);
+          if (progress != null) {
+            final percent = progress.totalBytes > 0
+                ? progress.downloadedBytes / progress.totalBytes
+                : 0.0;
+            setState(() {
+              _progress = percent;
+            });
+            
+            if (progress.status == 'Completed') {
+              downloadComplete = true;
+            } else if (progress.status == 'Failed') {
+              throw Exception('Download failed');
+            } else if (progress.status == 'Cancelled') {
+              throw Exception('Download cancelled');
+            }
+          } else {
+            downloadComplete = true;
+          }
+        } catch (e) {
+          throw Exception('Failed to get download progress: $e');
+        }
+      }
+      
+      // Now install
+      setState(() {
+        _status = 'installing';
+        _progress = 1.0;
+      });
+      
+      // Install using the returned installer path
+      await installGame(
+        gameId: widget.gameId,
+        installerPath: installerPath,
+      );
+      
+      setState(() {
+        _status = 'complete';
+      });
+      
+      await Future.delayed(const Duration(seconds: 1));
+      widget.onInstallComplete?.call();
+      
+    } catch (e) {
+      setState(() {
+        _status = 'error';
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (_status) {
+      case 'downloading':
+        return Column(
+          children: [
+            LinearProgressIndicator(value: _progress),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: null,
+              icon: const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              label: Text('Downloading... ${(_progress * 100).toStringAsFixed(0)}%'),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+              ),
+            ),
+          ],
+        );
+      case 'installing':
+        return ElevatedButton.icon(
+          onPressed: null,
+          icon: const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          label: const Text('Installing...'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
+          ),
+        );
+      case 'complete':
+        return ElevatedButton.icon(
+          onPressed: null,
+          icon: const Icon(Icons.check, color: Colors.green),
+          label: const Text('Installed!'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
+          ),
+        );
+      case 'error':
+        return Column(
+          children: [
+            Text(
+              _errorMessage ?? 'Unknown error',
+              style: const TextStyle(color: Colors.red),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: _startInstall,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry Install'),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+              ),
+            ),
+          ],
+        );
+      default:
+        return ElevatedButton.icon(
+          onPressed: _startInstall,
+          icon: const Icon(Icons.download),
+          label: const Text('Install'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
+          ),
+        );
     }
   }
 }
