@@ -310,25 +310,50 @@ pub async fn start_download(game_id: i64) -> Result<String> {
     let download_info = api.get_download_info(&game, &game.platform).await?;
     
     let config = APP_STATE.config.lock().await.clone();
-    let download_manager = APP_STATE.download_manager.lock().await;
+    
+    // Create the downloads directory if it doesn't exist
+    let downloads_dir = PathBuf::from(&config.install_dir).join(".downloads");
+    std::fs::create_dir_all(&downloads_dir)?;
     
     let mut installer_paths: Vec<PathBuf> = Vec::new();
     
-    for file in download_info.files {
+    for file in &download_info.files {
         let real_link = api.get_real_download_link(&file.downlink).await?;
-        let file_name = real_link.split('/').last().unwrap_or("installer");
-        let save_path = PathBuf::from(&config.install_dir)
-            .join(".downloads")
-            .join(file_name);
-        
-        installer_paths.push(save_path.clone());
-        download_manager.download_file(&real_link, &save_path, game.id, true).await?;
+        let file_name = real_link.split('/').last()
+            .and_then(|s| s.split('?').next())
+            .unwrap_or("installer");
+        let save_path = downloads_dir.join(file_name);
+        installer_paths.push(save_path);
     }
     
     // Return the first installer path for installation
     let installer_path = installer_paths.first()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
+    
+    // Spawn download in background task so we can return immediately and let UI poll for progress
+    let download_manager = APP_STATE.download_manager.clone();
+    let files = download_info.files.clone();
+    let api_clone = api.clone();
+    let install_dir = config.install_dir.clone();
+    
+    tokio::spawn(async move {
+        for file in files {
+            let real_link = match api_clone.get_real_download_link(&file.downlink).await {
+                Ok(link) => link,
+                Err(_) => continue,
+            };
+            let file_name = real_link.split('/').last()
+                .and_then(|s| s.split('?').next())
+                .unwrap_or("installer");
+            let save_path = PathBuf::from(&install_dir)
+                .join(".downloads")
+                .join(file_name);
+            
+            let dm = download_manager.lock().await;
+            let _ = dm.download_file(&real_link, &save_path, game_id, true).await;
+        }
+    });
     
     Ok(installer_path)
 }
@@ -401,12 +426,29 @@ pub async fn get_active_downloads() -> Result<Vec<DownloadProgressDto>> {
 // ============================================================================
 
 pub async fn install_game(game_id: i64, installer_path: String) -> Result<GameDto> {
+    let installer = PathBuf::from(&installer_path);
+    
+    // Verify installer exists
+    if !installer.exists() {
+        return Err(MinigalaxyError::InstallError(format!(
+            "Installer file not found: {}",
+            installer_path
+        )));
+    }
+    
     let mut cache = APP_STATE.games_cache.lock().await;
     let game = cache.get_mut(&game_id)
         .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
     
     let config = APP_STATE.config.lock().await.clone();
-    GameInstaller::install_game(game, &PathBuf::from(installer_path), &config.install_dir).await?;
+    
+    // Create install directory if it doesn't exist
+    std::fs::create_dir_all(&config.install_dir)?;
+    
+    GameInstaller::install_game(game, &installer, &config.install_dir).await?;
+    
+    // Update game in database
+    games_db::save_game(game)?;
     
     Ok(GameDto::from(&*game))
 }

@@ -1232,16 +1232,28 @@ class _InstallButtonState extends State<_InstallButton> {
       // Start download and get installer path
       final installerPath = await startDownload(gameId: widget.gameId);
       
+      // Small delay to let download manager start tracking
+      await Future.delayed(const Duration(milliseconds: 200));
+      
       // Poll for download progress
       bool downloadComplete = false;
+      int nullProgressCount = 0;
+      
       while (!downloadComplete) {
         await Future.delayed(const Duration(milliseconds: 500));
         try {
           final progress = await getDownloadProgress(gameId: widget.gameId);
           if (progress != null) {
-            final percent = progress.totalBytes > BigInt.zero
-                ? progress.downloadedBytes.toDouble() / progress.totalBytes.toDouble()
-                : 0.0;
+            nullProgressCount = 0;
+            // Use toInt() for comparison since we might have BigInt or int
+            final downloaded = progress.downloadedBytes is BigInt 
+                ? (progress.downloadedBytes as BigInt).toInt() 
+                : progress.downloadedBytes as int;
+            final total = progress.totalBytes is BigInt 
+                ? (progress.totalBytes as BigInt).toInt() 
+                : progress.totalBytes as int;
+            
+            final percent = total > 0 ? downloaded / total : 0.0;
             setState(() {
               _progress = percent;
             });
@@ -1254,10 +1266,19 @@ class _InstallButtonState extends State<_InstallButton> {
               throw Exception('Download cancelled');
             }
           } else {
-            downloadComplete = true;
+            // Progress might be null if download finished or not yet started
+            nullProgressCount++;
+            if (nullProgressCount > 10) {
+              // After 5 seconds of no progress, assume complete
+              downloadComplete = true;
+            }
           }
         } catch (e) {
-          throw Exception('Failed to get download progress: $e');
+          // If getting progress fails, continue polling
+          nullProgressCount++;
+          if (nullProgressCount > 10) {
+            throw Exception('Failed to get download progress: $e');
+          }
         }
       }
       
