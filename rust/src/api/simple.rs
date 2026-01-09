@@ -20,6 +20,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+/// URL-decode a filename to handle %XX encoded characters
+fn decode_url_filename(filename: &str) -> String {
+    urlencoding::decode(filename)
+        .map(|s| s.into_owned())
+        .unwrap_or_else(|_| filename.to_string())
+}
+
 /// Application state (internal, not exposed to Flutter)
 struct AppState {
     config: Arc<Mutex<InternalConfig>>,
@@ -296,6 +303,14 @@ pub enum DownloadStatus {
     Failed { error: String },
 }
 
+/// Extract and decode a filename from a URL
+fn extract_filename_from_url(url: &str) -> String {
+    let raw_name = url.split('/').last()
+        .and_then(|s| s.split('?').next())
+        .unwrap_or("installer");
+    decode_url_filename(raw_name)
+}
+
 pub async fn start_download(game_id: i64) -> Result<String> {
     let api_guard = APP_STATE.api.lock().await;
     let api = api_guard.as_ref()
@@ -315,15 +330,16 @@ pub async fn start_download(game_id: i64) -> Result<String> {
     let downloads_dir = PathBuf::from(&config.install_dir).join(".downloads");
     std::fs::create_dir_all(&downloads_dir)?;
     
+    // Pre-compute installer paths for all files (using decoded filenames)
     let mut installer_paths: Vec<PathBuf> = Vec::new();
+    let mut download_links: Vec<String> = Vec::new();
     
     for file in &download_info.files {
         let real_link = api.get_real_download_link(&file.downlink).await?;
-        let file_name = real_link.split('/').last()
-            .and_then(|s| s.split('?').next())
-            .unwrap_or("installer");
-        let save_path = downloads_dir.join(file_name);
+        let file_name = extract_filename_from_url(&real_link);
+        let save_path = downloads_dir.join(&file_name);
         installer_paths.push(save_path);
+        download_links.push(real_link);
     }
     
     // Return the first installer path for installation
@@ -333,26 +349,19 @@ pub async fn start_download(game_id: i64) -> Result<String> {
     
     // Spawn download in background task so we can return immediately and let UI poll for progress
     let download_manager = APP_STATE.download_manager.clone();
-    let files = download_info.files.clone();
-    // Clone API before dropping the guard so we can use it in the spawned task
-    let api_clone = api.clone();
-    let install_dir = config.install_dir.clone();
     
     // Drop the guard before spawning so we don't hold the lock
     drop(api_guard);
     
+    // Clone paths for spawned task
+    let paths = installer_paths.clone();
+    let links = download_links.clone();
+    
     tokio::spawn(async move {
-        for file in files {
-            let real_link = match api_clone.get_real_download_link(&file.downlink).await {
-                Ok(link) => link,
-                Err(_) => continue,
-            };
-            let file_name = real_link.split('/').last()
-                .and_then(|s| s.split('?').next())
-                .unwrap_or("installer");
-            let save_path = PathBuf::from(&install_dir)
-                .join(".downloads")
-                .join(file_name);
+        for (idx, real_link) in links.into_iter().enumerate() {
+            let save_path = paths.get(idx).cloned().unwrap_or_else(|| {
+                PathBuf::from(".downloads").join(extract_filename_from_url(&real_link))
+            });
             
             // Get the download manager, then drop the lock before starting the download
             // This allows progress polling to work while download is in progress
