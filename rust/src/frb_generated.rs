@@ -2347,12 +2347,12 @@ fn wire__crate__api__simple__launch_game_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_game_id = <i64>::sse_decode(&mut deserializer);
+            let api__game_id = <i64>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
-                        let output_ok = crate::api::simple::launch_game(api_game_id)?;
+                        let output_ok = crate::api::simple::launch_game(api__game_id)?;
                         Ok(output_ok)
                     })(),
                 )

@@ -862,17 +862,20 @@ class _LibraryPageState extends State<LibraryPage> {
                   ElevatedButton.icon(
                     onPressed: () async {
                       try {
-                        await startDownload(gameId: game.id);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Starting download and installation...')),
+                        );
+                        await downloadAndInstall(gameId: game.id);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Download started')),
+                            const SnackBar(content: Text('Installation complete!')),
                           );
                           Navigator.pop(context);
                         }
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to download: $e')),
+                            SnackBar(content: Text('Failed to install: $e')),
                           );
                         }
                       }
