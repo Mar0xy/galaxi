@@ -1239,8 +1239,8 @@ class _InstallButtonState extends State<_InstallButton> {
         try {
           final progress = await getDownloadProgress(gameId: widget.gameId);
           if (progress != null) {
-            final percent = progress.totalBytes > 0
-                ? progress.downloadedBytes / progress.totalBytes
+            final percent = progress.totalBytes > BigInt.zero
+                ? progress.downloadedBytes.toDouble() / progress.totalBytes.toDouble()
                 : 0.0;
             setState(() {
               _progress = percent;
