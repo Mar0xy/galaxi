@@ -8,7 +8,23 @@ import 'package:minigalaxy_flutter/src/rust/frb_generated.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_linux_webview/flutter_linux_webview.dart';
 
+// Track whether Linux WebView has been initialized
+bool _linuxWebViewInitialized = false;
+
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Linux WebView plugin on Linux platform (must be done before runApp)
+  if (Platform.isLinux) {
+    try {
+      LinuxWebViewPlugin.initialize();
+      WebView.platform = LinuxWebView();
+      _linuxWebViewInitialized = true;
+    } catch (e) {
+      debugPrint('Warning: Failed to initialize LinuxWebViewPlugin: $e');
+    }
+  }
+  
   await RustLib.init();
   runApp(const MinigalaxyApp());
 }
@@ -20,14 +36,34 @@ class MinigalaxyApp extends StatefulWidget {
   State<MinigalaxyApp> createState() => _MinigalaxyAppState();
 }
 
-class _MinigalaxyAppState extends State<MinigalaxyApp> {
+class _MinigalaxyAppState extends State<MinigalaxyApp> with WidgetsBindingObserver {
   bool _darkTheme = false;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadTheme();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Future<AppExitResponse> didRequestAppExit() async {
+    // Terminate Linux WebView plugin when app exits
+    if (Platform.isLinux && _linuxWebViewInitialized) {
+      try {
+        await LinuxWebViewPlugin.terminate();
+      } catch (e) {
+        debugPrint('Warning: Failed to terminate LinuxWebViewPlugin: $e');
+      }
+    }
+    return AppExitResponse.exit;
   }
 
   Future<void> _loadTheme() async {
@@ -425,7 +461,7 @@ class _LoginWebViewPage extends StatefulWidget {
   State<_LoginWebViewPage> createState() => _LoginWebViewPageState();
 }
 
-class _LoginWebViewPageState extends State<_LoginWebViewPage> with WidgetsBindingObserver {
+class _LoginWebViewPageState extends State<_LoginWebViewPage> {
   final Completer<WebViewController> _controller = Completer<WebViewController>();
   bool _isLoading = true;
   bool _isInitialized = false;
@@ -434,7 +470,6 @@ class _LoginWebViewPageState extends State<_LoginWebViewPage> with WidgetsBindin
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _initWebView();
   }
   
@@ -450,25 +485,22 @@ class _LoginWebViewPageState extends State<_LoginWebViewPage> with WidgetsBindin
       return;
     }
     
-    try {
-      // Initialize the Linux WebView plugin
-      LinuxWebViewPlugin.initialize();
-      
-      // Configure WebView to use the Linux implementation
-      WebView.platform = LinuxWebView();
-      
-      setState(() {
-        _isInitialized = true;
-        _isLoading = false;
-      });
-    } catch (e) {
+    // Check if WebView was already initialized in main()
+    if (!_linuxWebViewInitialized) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to initialize webview: $e')),
+          const SnackBar(content: Text('WebView plugin failed to initialize at startup')),
         );
         Navigator.pop(context);
       }
+      return;
     }
+    
+    // WebView is already initialized in main(), just mark as ready
+    setState(() {
+      _isInitialized = true;
+      _isLoading = false;
+    });
   }
   
   Future<void> _checkUrl() async {
@@ -495,20 +527,8 @@ class _LoginWebViewPageState extends State<_LoginWebViewPage> with WidgetsBindin
   }
   
   @override
-  Future<AppExitResponse> didRequestAppExit() async {
-    try {
-      await LinuxWebViewPlugin.terminate();
-    } catch (e) {
-      // Log error but don't prevent exit
-      debugPrint('Warning: Failed to terminate LinuxWebViewPlugin: $e');
-    }
-    return AppExitResponse.exit;
-  }
-  
-  @override
   void dispose() {
     _urlCheckTimer?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
   
