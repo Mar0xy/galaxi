@@ -15,6 +15,15 @@ impl GameInstaller {
         installer_path: &PathBuf,
         install_dir: &str,
     ) -> Result<()> {
+        Self::install_game_with_wine(game, installer_path, install_dir, None).await
+    }
+    
+    pub async fn install_game_with_wine(
+        game: &mut Game,
+        installer_path: &PathBuf,
+        install_dir: &str,
+        global_wine_executable: Option<&str>,
+    ) -> Result<()> {
         let install_path = PathBuf::from(install_dir).join(game.get_install_directory_name());
         
         fs::create_dir_all(&install_path)?;
@@ -27,7 +36,7 @@ impl GameInstaller {
         if file_name.ends_with(".sh") {
             Self::install_linux_game(installer_path, &install_path)?;
         } else if file_name.ends_with(".exe") {
-            Self::install_windows_game(installer_path, &install_path, game)?;
+            Self::install_windows_game(installer_path, &install_path, game, global_wine_executable)?;
         } else {
             return Err(MinigalaxyError::InstallError(
                 format!("Unknown installer format: {}", file_name)
@@ -69,6 +78,7 @@ impl GameInstaller {
         installer_path: &PathBuf,
         install_path: &PathBuf,
         game: &Game,
+        global_wine_executable: Option<&str>,
     ) -> Result<()> {
         // Verify installer file exists first
         if !installer_path.exists() {
@@ -92,20 +102,30 @@ impl GameInstaller {
                 .map_err(|e| MinigalaxyError::InstallError(e.to_string()))?;
         }
 
-        // Get per-game Wine executable if set, otherwise use default "wine"
+        // Get Wine executable: per-game setting > global setting > default "wine"
         let wine_path = game.get_info("custom_wine")
             .ok()
             .flatten()
+            .or_else(|| global_wine_executable.filter(|s| !s.is_empty()).map(|s| s.to_string()))
             .unwrap_or_else(|| "wine".to_string());
 
-        // Check if Wine is available
-        let wine_check = Command::new("which")
-            .arg(&wine_path)
-            .output();
+        // Check if Wine is available - support both absolute paths and PATH lookup
+        let wine_exists = if wine_path.contains('/') {
+            // Absolute or relative path - check if file exists and is executable
+            let wine_file = std::path::Path::new(&wine_path);
+            wine_file.exists()
+        } else {
+            // Just a command name - use which to find it in PATH
+            Command::new("which")
+                .arg(&wine_path)
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+        };
         
-        if wine_check.is_err() || !wine_check.unwrap().status.success() {
+        if !wine_exists {
             return Err(MinigalaxyError::InstallError(format!(
-                "Wine not found: '{}'. Please install Wine to run Windows games.",
+                "Wine not found: '{}'. Please install Wine or set a valid custom Wine path in Settings.",
                 wine_path
             )));
         }
@@ -180,6 +200,14 @@ impl GameInstaller {
         game: &Game,
         dlc_installer_path: &PathBuf,
     ) -> Result<()> {
+        Self::install_dlc_with_wine(game, dlc_installer_path, None).await
+    }
+    
+    pub async fn install_dlc_with_wine(
+        game: &Game,
+        dlc_installer_path: &PathBuf,
+        global_wine_executable: Option<&str>,
+    ) -> Result<()> {
         if !game.is_installed() {
             return Err(MinigalaxyError::InstallError(
                 "Base game must be installed first".to_string()
@@ -195,7 +223,7 @@ impl GameInstaller {
         if file_name.ends_with(".sh") {
             Self::install_linux_game(dlc_installer_path, &install_path)?;
         } else if file_name.ends_with(".exe") {
-            Self::install_windows_game(dlc_installer_path, &install_path, game)?;
+            Self::install_windows_game(dlc_installer_path, &install_path, game, global_wine_executable)?;
         }
 
         Ok(())

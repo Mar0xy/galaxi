@@ -491,7 +491,9 @@ pub async fn install_game(game_id: i64, installer_path: String) -> Result<GameDt
     // Create install directory if it doesn't exist
     std::fs::create_dir_all(&config.install_dir)?;
     
-    GameInstaller::install_game(game, &installer, &config.install_dir).await?;
+    // Pass the global wine executable from config as fallback
+    let wine_exe = if config.wine_executable.is_empty() { None } else { Some(config.wine_executable.as_str()) };
+    GameInstaller::install_game_with_wine(game, &installer, &config.install_dir, wine_exe).await?;
     
     // Update game in database
     games_db::save_game(game)?;
@@ -512,7 +514,9 @@ pub async fn install_dlc(game_id: i64, dlc_installer_path: String) -> Result<()>
     let game = cache.get(&game_id)
         .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
     
-    GameInstaller::install_dlc(game, &PathBuf::from(dlc_installer_path)).await
+    let config = APP_STATE.config.lock().await.clone();
+    let wine_exe = if config.wine_executable.is_empty() { None } else { Some(config.wine_executable.as_str()) };
+    GameInstaller::install_dlc_with_wine(game, &PathBuf::from(dlc_installer_path), wine_exe).await
 }
 
 // ============================================================================
