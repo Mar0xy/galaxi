@@ -439,6 +439,17 @@ class _LoginWebViewPageState extends State<_LoginWebViewPage> with WidgetsBindin
   }
   
   Future<void> _initWebView() async {
+    // Only initialize Linux WebView on Linux platform
+    if (!Platform.isLinux) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('WebView login only supported on Linux')),
+        );
+        Navigator.pop(context);
+      }
+      return;
+    }
+    
     try {
       // Initialize the Linux WebView plugin
       LinuxWebViewPlugin.initialize();
@@ -485,7 +496,12 @@ class _LoginWebViewPageState extends State<_LoginWebViewPage> with WidgetsBindin
   
   @override
   Future<AppExitResponse> didRequestAppExit() async {
-    await LinuxWebViewPlugin.terminate();
+    try {
+      await LinuxWebViewPlugin.terminate();
+    } catch (e) {
+      // Log error but don't prevent exit
+      debugPrint('Warning: Failed to terminate LinuxWebViewPlugin: $e');
+    }
     return AppExitResponse.exit;
   }
   

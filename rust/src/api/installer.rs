@@ -221,8 +221,17 @@ impl GameInstaller {
             cmd.arg("-q")
                .arg(component);
             
-            // Don't fail if winetricks fails - just log and continue
-            let _ = cmd.output();
+            // Log winetricks result but don't fail the install if it fails
+            match cmd.output() {
+                Ok(output) if !output.status.success() => {
+                    eprintln!("Warning: winetricks {} failed: {}", component, 
+                        String::from_utf8_lossy(&output.stderr));
+                }
+                Err(e) => {
+                    eprintln!("Warning: Failed to run winetricks {}: {}", component, e);
+                }
+                _ => {}
+            }
         }
         
         Ok(())

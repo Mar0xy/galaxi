@@ -379,7 +379,7 @@ pub async fn start_download(game_id: i64) -> Result<String> {
             drop(dm);
             
             // Create a temporary download manager with shared active_downloads
-            // resume=true will check for .part files and resume from there
+            // The 4th parameter (true) enables resume from existing .part files
             let temp_dm = DownloadManager::with_shared_downloads(active_downloads);
             let _ = temp_dm.download_file(&real_link, &save_path, game_id, true).await;
         }
