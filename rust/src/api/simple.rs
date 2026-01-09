@@ -292,17 +292,6 @@ pub async fn check_for_update(game_id: i64) -> Result<bool> {
 // Download API
 // ============================================================================
 
-/// Download status for tracking UI progress
-#[flutter_rust_bridge::frb(non_opaque)]
-#[derive(Debug, Clone)]
-pub enum UiDownloadStatus {
-    Starting,
-    Downloading { progress: f64, speed: String },
-    Installing,
-    Complete,
-    Failed { error: String },
-}
-
 /// Extract and decode a filename from a URL
 fn extract_filename_from_url(url: &str) -> String {
     let raw_name = url.split('/').last()
