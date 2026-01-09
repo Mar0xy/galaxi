@@ -213,6 +213,42 @@ class _HomePageState extends State<HomePage> {
       avatarUrl: _avatarUrl,
       accounts: _accounts,
       onThemeChanged: widget.onThemeChanged,
+      onAddAccount: () async {
+        // Navigate to login flow to add another account
+        if (Platform.isLinux && _linuxWebViewInitialized) {
+          final loginUrl = getLoginUrl();
+          final successUrl = getSuccessUrl();
+          
+          final code = await Navigator.push<String>(
+            context,
+            MaterialPageRoute(
+              builder: (context) => _LoginWebViewPage(
+                loginUrl: loginUrl,
+                successUrl: successUrl,
+              ),
+            ),
+          );
+          
+          if (code != null && code.isNotEmpty && mounted) {
+            try {
+              final refreshToken = await authenticate(loginCode: code);
+              await addCurrentAccount(refreshToken: refreshToken);
+              // Refresh to show new account
+              await _checkLoginStatus();
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to add account: $e')),
+                );
+              }
+            }
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Add account not available')),
+          );
+        }
+      },
       onLogout: () async {
         await logout();
         setState(() {
@@ -586,6 +622,7 @@ class LibraryPage extends StatefulWidget {
   final String? avatarUrl;
   final List<AccountDto> accounts;
   final VoidCallback onLogout;
+  final VoidCallback? onAddAccount;
   final Function(bool)? onThemeChanged;
 
   const LibraryPage({
@@ -594,6 +631,7 @@ class LibraryPage extends StatefulWidget {
     this.avatarUrl,
     required this.accounts,
     required this.onLogout,
+    this.onAddAccount,
     this.onThemeChanged,
   });
 
@@ -773,7 +811,8 @@ class _LibraryPageState extends State<LibraryPage> {
         if (value == 'logout') {
           widget.onLogout();
         } else if (value == 'add_account') {
-          // Show add account dialog
+          // Trigger add account flow
+          widget.onAddAccount?.call();
         } else if (value.startsWith('switch:')) {
           final userId = value.substring(7);
           await switchAccount(userId: userId);
