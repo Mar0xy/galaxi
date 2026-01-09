@@ -334,8 +334,12 @@ pub async fn start_download(game_id: i64) -> Result<String> {
     // Spawn download in background task so we can return immediately and let UI poll for progress
     let download_manager = APP_STATE.download_manager.clone();
     let files = download_info.files.clone();
+    // Clone API before dropping the guard so we can use it in the spawned task
     let api_clone = api.clone();
     let install_dir = config.install_dir.clone();
+    
+    // Drop the guard before spawning so we don't hold the lock
+    drop(api_guard);
     
     tokio::spawn(async move {
         for file in files {

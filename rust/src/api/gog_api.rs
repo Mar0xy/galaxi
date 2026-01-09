@@ -6,6 +6,7 @@ use super::error::{MinigalaxyError, Result};
 use super::game::Game;
 
 /// GOG API client
+#[derive(Clone)]
 pub struct GogApi {
     config: Config,
     client: Client,
