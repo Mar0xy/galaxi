@@ -56,12 +56,12 @@ Future<AccountDto?> getActiveAccount() async {
   return result != null ? AccountDto.fromJson(result) : null;
 }
 
-Future<AccountDto> addCurrentAccount(String refreshToken) async {
+Future<AccountDto> addCurrentAccount({required String refreshToken}) async {
   final result = await backendClient.call<Map<String, dynamic>>('addCurrentAccount', [refreshToken]);
   return AccountDto.fromJson(result);
 }
 
-Future<bool> switchAccount(String userId) async {
+Future<bool> switchAccount({required String userId}) async {
   return await backendClient.call<bool>('switchAccount', [userId]);
 }
 
@@ -89,8 +89,8 @@ Future<bool> getDarkTheme() async {
   return await backendClient.call<bool>('getDarkTheme');
 }
 
-Future<void> setDarkTheme(bool value) async {
-  await backendClient.call<void>('setDarkTheme', [value]);
+Future<void> setDarkTheme({required bool enabled}) async {
+  await backendClient.call<void>('setDarkTheme', [enabled]);
 }
 
 // Additional Configuration API
@@ -106,7 +106,7 @@ Future<String> getLanguage() async {
   return await backendClient.call<String>('getLanguage');
 }
 
-Future<void> setLanguage(String lang) async {
+Future<void> setLanguage({required String lang}) async {
   await backendClient.call<void>('setLanguage', [lang]);
 }
 
@@ -114,7 +114,7 @@ Future<String> getViewMode() async {
   return await backendClient.call<String>('getViewMode');
 }
 
-Future<void> setViewMode(String view) async {
+Future<void> setViewMode({required String view}) async {
   await backendClient.call<void>('setViewMode', [view]);
 }
 
@@ -122,7 +122,7 @@ Future<bool> getShowWindowsGames() async {
   return await backendClient.call<bool>('getShowWindowsGames');
 }
 
-Future<void> setShowWindowsGames(bool enabled) async {
+Future<void> setShowWindowsGames({required bool enabled}) async {
   await backendClient.call<void>('setShowWindowsGames', [enabled]);
 }
 
@@ -138,7 +138,7 @@ Future<bool> getKeepInstallers() async {
   return await backendClient.call<bool>('getKeepInstallers');
 }
 
-Future<void> setKeepInstallers(bool enabled) async {
+Future<void> setKeepInstallers({required bool enabled}) async {
   await backendClient.call<void>('setKeepInstallers', [enabled]);
 }
 
@@ -162,7 +162,7 @@ Future<bool> getWineDebug() async {
   return await backendClient.call<bool>('getWineDebug');
 }
 
-Future<void> setWineDebug(bool enabled) async {
+Future<void> setWineDebug({required bool enabled}) async {
   await backendClient.call<void>('setWineDebug', [enabled]);
 }
 
@@ -170,7 +170,7 @@ Future<bool> getWineDisableNtsync() async {
   return await backendClient.call<bool>('getWineDisableNtsync');
 }
 
-Future<void> setWineDisableNtsync(bool enabled) async {
+Future<void> setWineDisableNtsync({required bool enabled}) async {
   await backendClient.call<void>('setWineDisableNtsync', [enabled]);
 }
 
@@ -178,7 +178,7 @@ Future<bool> getWineAutoInstallDxvk() async {
   return await backendClient.call<bool>('getWineAutoInstallDxvk');
 }
 
-Future<void> setWineAutoInstallDxvk(bool enabled) async {
+Future<void> setWineAutoInstallDxvk({required bool enabled}) async {
   await backendClient.call<void>('setWineAutoInstallDxvk', [enabled]);
 }
 

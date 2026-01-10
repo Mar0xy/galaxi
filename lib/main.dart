@@ -1036,8 +1036,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 builder: (context) => SimpleDialog(
                   title: const Text('Select Language'),
                   children: languages.map((lang) => SimpleDialogOption(
-                    onPressed: () => Navigator.pop(context, lang.$1),
-                    child: Text(lang.$2),
+                    onPressed: () => Navigator.pop(context, lang['code']),
+                    child: Text(lang['name']!),
                   )).toList(),
                 ),
               );
