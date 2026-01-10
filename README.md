@@ -1,6 +1,6 @@
 # Galaxi
 
-A GOG Galaxy client for Linux built with Flutter (UI) and Rust (backend), connected via flutter_rust_bridge.
+A GOG Galaxy client for Linux built with Flutter (UI) and TypeScript (backend).
 
 ## Features
 
@@ -24,24 +24,55 @@ A GOG Galaxy client for Linux built with Flutter (UI) and Rust (backend), connec
 
 ### Prerequisites
 
-- Flutter 3.5+
-- Rust 1.70+
+- Flutter 3.27+
+- Node.js 18+ and npm
 - Linux development dependencies (GTK3, etc.)
 
 ### Build Steps
 
 ```bash
-# Install dependencies
-flutter pub get
+# Install TypeScript dependencies
+cd typescript
+npm install
+npm run build
+cd ..
 
-# Generate Rust bridge bindings
-flutter_rust_bridge_codegen generate
+# Install Flutter dependencies
+flutter pub get
 
 # Build release
 flutter build linux --release
 ```
 
 The built application will be in `build/linux/x64/release/bundle/`.
+
+## Running
+
+The easiest way to run Galaxi is using the combined startup script:
+
+```bash
+./start-galaxi.sh
+```
+
+This script will:
+1. Start the TypeScript backend server on http://localhost:3000
+2. Launch the Flutter app
+3. Automatically stop the backend server when the app exits
+
+### Manual Running
+
+If you prefer to run the components separately:
+
+**Terminal 1 - Start TypeScript Backend:**
+```bash
+cd typescript
+npm start
+```
+
+**Terminal 2 - Start Flutter App:**
+```bash
+flutter run
+```
 
 ## Usage
 
@@ -51,6 +82,13 @@ The built application will be in `build/linux/x64/release/bundle/`.
 4. Paste the code into the dialog and click "Login"
 5. Browse your library and install games
 
+## Architecture
+
+Galaxi uses a client-server architecture:
+- **Frontend**: Flutter app providing the UI
+- **Backend**: TypeScript/Node.js server handling GOG API, game management, downloads, and Wine integration
+- **Communication**: HTTP REST API between Flutter and TypeScript backend
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
@@ -58,4 +96,5 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 ## Acknowledgments
 
 - Inspired by [Minigalaxy](https://github.com/sharkwouter/minigalaxy)
-- Uses [flutter_rust_bridge](https://github.com/aspect-dev/flutter_rust_bridge) for Rust-Flutter interop
+- Originally built with Rust backend using [flutter_rust_bridge](https://github.com/fzyzcjy/flutter_rust_bridge)
+- Converted to TypeScript backend for improved accessibility and maintainability
