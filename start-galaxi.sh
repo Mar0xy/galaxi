@@ -18,24 +18,24 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}=== Starting Galaxi ===${NC}"
 
 # Check if TypeScript is set up
-if [ ! -d "typescript/node_modules" ]; then
+if [ ! -d "backend/node_modules" ]; then
     echo -e "${YELLOW}Installing TypeScript dependencies...${NC}"
-    cd typescript
+    cd backend
     npm install
     cd ..
 fi
 
 # Build TypeScript if needed
-if [ ! -d "typescript/dist" ]; then
+if [ ! -d "backend/dist" ]; then
     echo -e "${YELLOW}Building TypeScript backend...${NC}"
-    cd typescript
+    cd backend
     npm run build
     cd ..
 fi
 
 # Start TypeScript backend server in background
 echo -e "${GREEN}Starting TypeScript backend server...${NC}"
-cd typescript
+cd backend
 node dist/server.js &
 SERVER_PID=$!
 cd ..
@@ -67,6 +67,6 @@ trap cleanup EXIT INT TERM
 
 # Start Flutter app
 echo -e "${GREEN}Starting Flutter app...${NC}"
-flutter run
+./galaxi
 
 # When flutter exits, cleanup will automatically run
