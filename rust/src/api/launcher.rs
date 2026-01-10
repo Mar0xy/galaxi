@@ -111,27 +111,34 @@ pub fn determine_launcher_type_with_wine(game: &Game, _global_wine_executable: O
     // Last resort: check if there are any .exe files in common locations
     // This handles cases where the game is installed but detection missed it
     let possible_dirs = [
-        wine_game_dir.clone(),
-        wine_drive_c.join("Program Files"),
-        wine_drive_c.join("Program Files (x86)"),
-        wine_drive_c.clone(),
-        install_dir.clone(),
+        &wine_game_dir,
+        &wine_drive_c.join("Program Files"),
+        &wine_drive_c.join("Program Files (x86)"),
+        &wine_drive_c,
+        &install_dir,
     ];
     
-    for dir in &possible_dirs {
-        if dir.exists() {
-            if let Ok(entries) = std::fs::read_dir(dir) {
-                for entry in entries.flatten() {
-                    let name = entry.file_name().to_string_lossy().to_string();
-                    if name.to_uppercase().ends_with(".EXE") {
-                        return LauncherType::Wine;
+    if has_exe_files(possible_dirs.iter().filter_map(|d| if d.exists() { Some(d.as_path()) } else { None })) {
+        return LauncherType::Wine;
+    }
+    
+    LauncherType::Unknown
+}
+
+/// Helper function to check if any directory contains .exe files
+fn has_exe_files<'a>(dirs: impl Iterator<Item = &'a std::path::Path>) -> bool {
+    for dir in dirs {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                if let Some(ext) = entry.path().extension() {
+                    if ext.eq_ignore_ascii_case("exe") {
+                        return true;
                     }
                 }
             }
         }
     }
-    
-    LauncherType::Unknown
+    false
 }
 
 #[flutter_rust_bridge::frb(ignore)]
