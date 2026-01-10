@@ -541,8 +541,13 @@ class _LibraryPageState extends State<LibraryPage> {
   Future<void> _loadLibrary() async {
     setState(() => _isLoading = true);
     try {
-      final games = await getLibrary();
-      setState(() => _games = games);
+      // Fetch library from API (this also populates the cache)
+      await getLibrary();
+      // Scan for games that were installed before but not tracked in the database
+      await scanForInstalledGames();
+      // Reload to get updated install_dir values
+      final updatedGames = await getLibrary();
+      setState(() => _games = updatedGames);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1604,37 +1609,34 @@ class _GamePageState extends State<GamePage> {
                       const SizedBox(height: 16),
                       SizedBox(
                         height: 200,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          child: Row(
-                            children: _screenshots.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final screenshot = entry.value;
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                  right: index < _screenshots.length - 1 ? 16 : 0,
-                                ),
-                                child: GestureDetector(
-                                  onTap: () => _showFullScreenshot(context, index),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      screenshot,
-                                      height: 200,
+                        child: Scrollbar(
+                          thumbVisibility: true,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            physics: const ClampingScrollPhysics(),
+                            itemCount: _screenshots.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 16),
+                            itemBuilder: (context, index) {
+                              final screenshot = _screenshots[index];
+                              return GestureDetector(
+                                onTap: () => _showFullScreenshot(context, index),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    screenshot,
+                                    height: 200,
+                                    width: 320,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
                                       width: 320,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        width: 320,
-                                        height: 200,
-                                        color: Colors.grey[300],
-                                        child: const Icon(Icons.broken_image, size: 48),
-                                      ),
+                                      height: 200,
+                                      color: Colors.grey[300],
+                                      child: const Icon(Icons.broken_image, size: 48),
                                     ),
                                   ),
                                 ),
                               );
-                            }).toList(),
+                            },
                           ),
                         ),
                       ),

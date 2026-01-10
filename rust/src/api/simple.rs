@@ -253,6 +253,61 @@ pub async fn get_library() -> Result<Vec<GameDto>> {
     Ok(games.into_iter().map(GameDto::from).collect())
 }
 
+/// Scan the install directory to detect games that were installed before but
+/// whose install_dir wasn't saved to the database
+pub async fn scan_for_installed_games() -> Result<i32> {
+    let config = APP_STATE.config.lock().await.clone();
+    let install_base = PathBuf::from(&config.install_dir);
+    
+    if !install_base.exists() {
+        return Ok(0);
+    }
+    
+    let mut cache = APP_STATE.games_cache.lock().await;
+    let mut updated_count = 0;
+    
+    // List all directories in the install dir
+    if let Ok(entries) = std::fs::read_dir(&install_base) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            
+            // Skip .downloads folder
+            let dir_name = path.file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default();
+            if dir_name.starts_with('.') {
+                continue;
+            }
+            
+            // Check if this directory has wine_prefix/drive_c (Windows game) or a start script (Linux game)
+            let wine_prefix = path.join("wine_prefix").join("drive_c");
+            let start_script = path.join("start.sh");
+            let is_installed = wine_prefix.exists() || start_script.exists();
+            
+            if !is_installed {
+                continue;
+            }
+            
+            // Try to find a matching game in the cache
+            for game in cache.values_mut() {
+                let game_dir_name = game.get_install_directory_name();
+                if game_dir_name == dir_name && game.install_dir.is_empty() {
+                    // Found a match - update install_dir
+                    game.install_dir = path.to_string_lossy().to_string();
+                    let _ = games_db::save_game(game);
+                    updated_count += 1;
+                    break;
+                }
+            }
+        }
+    }
+    
+    Ok(updated_count)
+}
+
 pub async fn get_game_info(game_id: i64) -> Result<GameInfoDto> {
     let api_guard = APP_STATE.api.lock().await;
     let api = api_guard.as_ref()
