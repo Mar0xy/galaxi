@@ -146,7 +146,7 @@ Future<String> getWinePrefix() async {
   return await backendClient.call<String>('getWinePrefix');
 }
 
-Future<void> setWinePrefix(String prefix) async {
+Future<void> setWinePrefix({required String prefix}) async {
   await backendClient.call<void>('setWinePrefix', [prefix]);
 }
 
@@ -154,7 +154,7 @@ Future<String> getWineExecutable() async {
   return await backendClient.call<String>('getWineExecutable');
 }
 
-Future<void> setWineExecutable(String executable) async {
+Future<void> setWineExecutable({required String executable}) async {
   await backendClient.call<void>('setWineExecutable', [executable]);
 }
 
@@ -193,7 +193,7 @@ Future<int> scanForInstalledGames() async {
 }
 
 // Download API
-Future<String> startDownload(int gameId) async {
+Future<String> startDownload({required int gameId}) async {
   return await backendClient.call<String>('startDownload', [gameId]);
 }
 
@@ -216,12 +216,12 @@ Future<DownloadProgressDto?> getDownloadProgress({required int gameId}) async {
 }
 
 // Installation API
-Future<GameDto> installGame(int gameId, String installerPath) async {
+Future<GameDto> installGame({required int gameId, required String installerPath}) async {
   final result = await backendClient.call<Map<String, dynamic>>('installGame', [gameId, installerPath]);
   return GameDto.fromJson(result);
 }
 
-Future<void> uninstallGame(int gameId) async {
+Future<void> uninstallGame({required int gameId}) async {
   await backendClient.call<void>('uninstallGame', [gameId]);
 }
 
@@ -251,6 +251,11 @@ Future<GameInfoDto> getGameInfo({required int gameId}) async {
 Future<GamesDbInfoDto> getGamesdbInfo({required int gameId}) async {
   final result = await backendClient.call<Map<String, dynamic>>('getGamesDbInfo', [gameId]);
   return GamesDbInfoDto.fromJson(result);
+}
+
+Future<LaunchResultDto> launchGameById(int gameId) async {
+  final result = await backendClient.call<Map<String, dynamic>>('launchGameById', [gameId]);
+  return LaunchResultDto.fromJson(result);
 }
 
 Future<LaunchResultDto> launchGameAsync({required int gameId}) async {
