@@ -174,146 +174,69 @@ fn get_wine_start_command(game: &Game) -> Result<Vec<String>> {
     Ok(exe_cmd)
 }
 
-fn get_windows_exe_cmd(game: &Game) -> Result<Vec<String>> {
-    let install_dir = PathBuf::from(&game.install_dir);
-    let prefix = install_dir.join("wine_prefix");
-    let wine = get_wine_path(game);
-    
-    // For Windows games installed via Wine, the game files are in wine_prefix/drive_c/game/
-    let game_dir = prefix.join("drive_c").join("game");
-    
-    // First check for goggame info file in the game directory
-    let goggame_file = game_dir.join(format!("goggame-{}.info", game.id));
-    if goggame_file.exists() {
-        if let Ok(content) = fs::read_to_string(&goggame_file) {
-            if let Ok(info) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(tasks) = info.get("playTasks").and_then(|t| t.as_array()) {
-                    for task in tasks {
-                        if task.get("isPrimary").and_then(|p| p.as_bool()).unwrap_or(false) {
-                            if let Some(path) = task.get("path").and_then(|p| p.as_str()) {
-                                let working_dir = task.get("workingDir")
-                                    .and_then(|w| w.as_str())
-                                    .unwrap_or(".");
-                                
-                                let mut cmd = vec![
-                                    "env".to_string(),
-                                    format!("WINEPREFIX={}", prefix.to_string_lossy()),
-                                    wine.clone(),
-                                    "start".to_string(),
-                                    "/b".to_string(),
-                                    "/wait".to_string(),
-                                    "/d".to_string(),
-                                    format!("c:\\game\\{}", working_dir),
-                                    format!("c:\\game\\{}", path),
-                                ];
-                                
-                                if let Some(args) = task.get("arguments").and_then(|a| a.as_str()) {
-                                    cmd.extend(args.split_whitespace().map(|s| s.to_string()));
-                                }
-                                
-                                return Ok(cmd);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+/// Helper function to parse goggame info file and return launch command
+fn parse_goggame_info(goggame_file: &PathBuf, prefix: &PathBuf, wine: &str) -> Option<Vec<String>> {
+    if !goggame_file.exists() {
+        return None;
     }
     
-    // Also check in install_dir for legacy installations
-    let goggame_file_legacy = install_dir.join(format!("goggame-{}.info", game.id));
-    if goggame_file_legacy.exists() {
-        if let Ok(content) = fs::read_to_string(&goggame_file_legacy) {
-            if let Ok(info) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(tasks) = info.get("playTasks").and_then(|t| t.as_array()) {
-                    for task in tasks {
-                        if task.get("isPrimary").and_then(|p| p.as_bool()).unwrap_or(false) {
-                            if let Some(path) = task.get("path").and_then(|p| p.as_str()) {
-                                let working_dir = task.get("workingDir")
-                                    .and_then(|w| w.as_str())
-                                    .unwrap_or(".");
-                                
-                                let mut cmd = vec![
-                                    "env".to_string(),
-                                    format!("WINEPREFIX={}", prefix.to_string_lossy()),
-                                    wine.clone(),
-                                    "start".to_string(),
-                                    "/b".to_string(),
-                                    "/wait".to_string(),
-                                    "/d".to_string(),
-                                    format!("c:\\game\\{}", working_dir),
-                                    format!("c:\\game\\{}", path),
-                                ];
-                                
-                                if let Some(args) = task.get("arguments").and_then(|a| a.as_str()) {
-                                    cmd.extend(args.split_whitespace().map(|s| s.to_string()));
-                                }
-                                
-                                return Ok(cmd);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let content = fs::read_to_string(goggame_file).ok()?;
+    let info: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let tasks = info.get("playTasks")?.as_array()?;
     
-    // Check for .lnk files in the game directory
-    if game_dir.exists() {
-        if let Ok(entries) = fs::read_dir(&game_dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                if name.starts_with("Launch ") && name.ends_with(".lnk") {
-                    return Ok(vec![
-                        "env".to_string(),
-                        format!("WINEPREFIX={}", prefix.to_string_lossy()),
-                        wine,
-                        entry.path().to_string_lossy().to_string(),
-                    ]);
-                }
-            }
-        }
-        
-        // Look for .exe files in the game directory
-        if let Ok(entries) = fs::read_dir(&game_dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                let upper = name.to_uppercase();
+    for task in tasks {
+        if task.get("isPrimary").and_then(|p| p.as_bool()).unwrap_or(false) {
+            if let Some(path) = task.get("path").and_then(|p| p.as_str()) {
+                let working_dir = task.get("workingDir")
+                    .and_then(|w| w.as_str())
+                    .unwrap_or(".");
                 
-                if !upper.ends_with(".EXE") && !upper.ends_with(".LNK") {
-                    continue;
-                }
-                
-                if BINARY_NAMES_TO_IGNORE.contains(&name.as_str()) {
-                    continue;
-                }
-                
-                return Ok(vec![
+                let mut cmd = vec![
                     "env".to_string(),
                     format!("WINEPREFIX={}", prefix.to_string_lossy()),
-                    wine,
-                    entry.path().to_string_lossy().to_string(),
-                ]);
+                    wine.to_string(),
+                    "start".to_string(),
+                    "/b".to_string(),
+                    "/wait".to_string(),
+                    "/d".to_string(),
+                    format!("c:\\game\\{}", working_dir),
+                    format!("c:\\game\\{}", path),
+                ];
+                
+                if let Some(args) = task.get("arguments").and_then(|a| a.as_str()) {
+                    cmd.extend(args.split_whitespace().map(|s| s.to_string()));
+                }
+                
+                return Some(cmd);
             }
         }
     }
+    None
+}
+
+/// Helper function to find executable in a directory
+fn find_executable_in_dir(dir: &PathBuf, prefix: &PathBuf, wine: &str) -> Option<Vec<String>> {
+    if !dir.exists() {
+        return None;
+    }
     
-    // Fallback: check in install_dir directly
-    if let Ok(entries) = fs::read_dir(&install_dir) {
+    // First check for .lnk files
+    if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
             if name.starts_with("Launch ") && name.ends_with(".lnk") {
-                return Ok(vec![
+                return Some(vec![
                     "env".to_string(),
                     format!("WINEPREFIX={}", prefix.to_string_lossy()),
-                    wine,
+                    wine.to_string(),
                     entry.path().to_string_lossy().to_string(),
                 ]);
             }
         }
     }
     
-    if let Ok(entries) = fs::read_dir(&install_dir) {
+    // Then look for .exe files
+    if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
             let upper = name.to_uppercase();
@@ -326,13 +249,46 @@ fn get_windows_exe_cmd(game: &Game) -> Result<Vec<String>> {
                 continue;
             }
             
-            return Ok(vec![
+            return Some(vec![
                 "env".to_string(),
                 format!("WINEPREFIX={}", prefix.to_string_lossy()),
-                wine,
+                wine.to_string(),
                 entry.path().to_string_lossy().to_string(),
             ]);
         }
+    }
+    
+    None
+}
+
+fn get_windows_exe_cmd(game: &Game) -> Result<Vec<String>> {
+    let install_dir = PathBuf::from(&game.install_dir);
+    let prefix = install_dir.join("wine_prefix");
+    let wine = get_wine_path(game);
+    
+    // For Windows games installed via Wine, the game files are in wine_prefix/drive_c/game/
+    let game_dir = prefix.join("drive_c").join("game");
+    
+    // First check for goggame info file in the game directory
+    let goggame_file = game_dir.join(format!("goggame-{}.info", game.id));
+    if let Some(cmd) = parse_goggame_info(&goggame_file, &prefix, &wine) {
+        return Ok(cmd);
+    }
+    
+    // Also check in install_dir for legacy installations
+    let goggame_file_legacy = install_dir.join(format!("goggame-{}.info", game.id));
+    if let Some(cmd) = parse_goggame_info(&goggame_file_legacy, &prefix, &wine) {
+        return Ok(cmd);
+    }
+    
+    // Check for executables in the game directory
+    if let Some(cmd) = find_executable_in_dir(&game_dir, &prefix, &wine) {
+        return Ok(cmd);
+    }
+    
+    // Fallback: check in install_dir directly
+    if let Some(cmd) = find_executable_in_dir(&install_dir, &prefix, &wine) {
+        return Ok(cmd);
     }
     
     Err(MinigalaxyError::LaunchError(
