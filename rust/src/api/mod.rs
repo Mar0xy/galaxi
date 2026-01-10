@@ -1,0 +1,11 @@
+pub mod simple;
+pub mod error;
+pub mod config;
+pub mod game;
+pub mod gog_api;
+pub mod account;
+pub mod download;
+pub mod installer;
+pub mod launcher;
+pub mod dto;
+pub mod database;
