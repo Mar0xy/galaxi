@@ -1,0 +1,28 @@
+{
+  "name": "galaxi-backend",
+  "version": "1.0.0",
+  "description": "GOG Galaxy client backend for Galaxi",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "keywords": ["gog", "galaxy", "flutter"],
+  "author": "",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "better-sqlite3": "^9.2.0",
+    "md5": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/md5": "^2.3.5",
+    "@types/node": "^20.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.0"
+  }
+}

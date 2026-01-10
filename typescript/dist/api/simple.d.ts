@@ -1,0 +1,28 @@
+import { AccountDto, UserDataDto, GameDto, ConfigDto, LaunchResultDto, GameInfoDto, GamesDbInfoDto } from './dto';
+export declare function greet(name: string): string;
+export declare function initApp(): void;
+export declare function getLoginUrl(): string;
+export declare function getRedirectUrl(): string;
+export declare function getSuccessUrl(): string;
+export declare function authenticate(loginCode?: string, refreshToken?: string): Promise<string>;
+export declare function loginWithCode(code: string): Promise<AccountDto>;
+export declare function isLoggedIn(): Promise<boolean>;
+export declare function logout(): Promise<void>;
+export declare function getUserData(): Promise<UserDataDto>;
+export declare function getAllAccounts(): Promise<AccountDto[]>;
+export declare function getActiveAccount(): Promise<AccountDto | null>;
+export declare function addCurrentAccount(refreshToken: string): Promise<AccountDto>;
+export declare function switchAccount(userId: string): Promise<boolean>;
+export declare function removeAccount(userId: string): Promise<void>;
+export declare function getLibrary(): Promise<GameDto[]>;
+export declare function getGameInfo(gameId: number): Promise<GameInfoDto>;
+export declare function getGamesDbInfo(gameId: number): Promise<GamesDbInfoDto>;
+export declare function installGame(gameId: number, installerUrl: string): Promise<void>;
+export declare function launchGameById(gameId: number): Promise<LaunchResultDto>;
+export declare function getConfig(): Promise<ConfigDto>;
+export declare function setConfigValue(key: string, value: string): Promise<void>;
+export declare function getDarkTheme(): Promise<boolean>;
+export declare function setDarkTheme(value: boolean): Promise<void>;
+export * from './dto';
+export * from './error';
+//# sourceMappingURL=simple.d.ts.map
