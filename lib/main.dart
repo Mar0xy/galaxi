@@ -2,25 +2,26 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:minigalaxy_flutter/src/rust/api/simple.dart';
-import 'package:minigalaxy_flutter/src/rust/api/dto.dart';
-import 'package:minigalaxy_flutter/src/rust/frb_generated.dart';
+import 'package:galaxi/src/rust/api/simple.dart';
+import 'package:galaxi/src/rust/api/dto.dart';
+import 'package:galaxi/src/rust/frb_generated.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
-  runApp(const MinigalaxyApp());
+  runApp(const GalaxiApp());
 }
 
-class MinigalaxyApp extends StatefulWidget {
-  const MinigalaxyApp({super.key});
+class GalaxiApp extends StatefulWidget {
+  const GalaxiApp({super.key});
 
   @override
-  State<MinigalaxyApp> createState() => _MinigalaxyAppState();
+  State<GalaxiApp> createState() => _GalaxiAppState();
 }
 
-class _MinigalaxyAppState extends State<MinigalaxyApp> {
+class _GalaxiAppState extends State<GalaxiApp> {
   bool _darkTheme = false;
   bool _isLoading = true;
 
@@ -57,7 +58,7 @@ class _MinigalaxyAppState extends State<MinigalaxyApp> {
     }
 
     return MaterialApp(
-      title: 'Minigalaxy',
+      title: 'Galaxi',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.purple,
@@ -623,7 +624,7 @@ class _LibraryPageState extends State<LibraryPage> {
     return PopupMenuButton<String>(
       icon: CircleAvatar(
         backgroundImage: widget.avatarUrl != null
-            ? NetworkImage(widget.avatarUrl!)
+            ? CachedNetworkImageProvider(widget.avatarUrl!)
             : null,
         child: widget.avatarUrl == null
             ? Text(widget.username.isNotEmpty ? widget.username[0].toUpperCase() : '?')
@@ -650,7 +651,7 @@ class _LibraryPageState extends State<LibraryPage> {
                 CircleAvatar(
                   radius: 12,
                   backgroundImage: account.avatarUrl != null
-                      ? NetworkImage(account.avatarUrl!)
+                      ? CachedNetworkImageProvider(account.avatarUrl!)
                       : null,
                   child: account.avatarUrl == null
                       ? Text(account.username[0].toUpperCase())
@@ -791,12 +792,16 @@ class _LibraryPageState extends State<LibraryPage> {
                   Container(color: Colors.grey[850] ?? Colors.grey[800]),
                   if (game.imageUrl.isNotEmpty)
                     Center(
-                      child: Image.network(
-                        'https:${game.imageUrl}_196.jpg',
+                      child: CachedNetworkImage(
+                        imageUrl: 'https:${game.imageUrl}_196.jpg',
                         fit: BoxFit.cover, // Cover to fill the space
                         width: double.infinity,
                         height: double.infinity,
-                        errorBuilder: (_, __, ___) => Container(
+                        placeholder: (context, url) => Container(
+                          color: Colors.grey[800],
+                          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                        ),
+                        errorWidget: (context, url, error) => Container(
                           color: Colors.grey[300],
                           child: const Icon(Icons.games, size: 48),
                         ),
@@ -855,12 +860,17 @@ class _LibraryPageState extends State<LibraryPage> {
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: game.imageUrl.isNotEmpty
-              ? Image.network(
-                  'https:${game.imageUrl}_196.jpg',
+              ? CachedNetworkImage(
+                  imageUrl: 'https:${game.imageUrl}_196.jpg',
                   width: 48,
                   height: 48,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
+                  placeholder: (context, url) => Container(
+                    width: 48,
+                    height: 48,
+                    color: Colors.grey[800],
+                  ),
+                  errorWidget: (context, url, error) => Container(
                     width: 48,
                     height: 48,
                     color: Colors.grey[300],
@@ -1373,10 +1383,11 @@ class _GamePageState extends State<GamePage> {
             itemBuilder: (context, index) {
               return InteractiveViewer(
                 child: Center(
-                  child: Image.network(
-                    _screenshots[index],
+                  child: CachedNetworkImage(
+                    imageUrl: _screenshots[index],
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    placeholder: (context, url) => const CircularProgressIndicator(),
+                    errorWidget: (context, url, error) => const Icon(
                       Icons.broken_image,
                       size: 64,
                       color: Colors.white,
@@ -1422,10 +1433,13 @@ class _GamePageState extends State<GamePage> {
                 fit: StackFit.expand,
                 children: [
                   if (backgroundImage != null)
-                    Image.network(
-                      backgroundImage,
+                    CachedNetworkImage(
+                      imageUrl: backgroundImage,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      placeholder: (context, url) => Container(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      errorWidget: (context, url, error) => Container(
                         color: Theme.of(context).colorScheme.primary,
                       ),
                     )
@@ -1632,12 +1646,18 @@ class _GamePageState extends State<GamePage> {
                                   onTap: () => _showFullScreenshot(context, index),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      screenshot,
+                                    child: CachedNetworkImage(
+                                      imageUrl: screenshot,
                                       height: 200,
                                       width: 320,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
+                                      placeholder: (context, url) => Container(
+                                        width: 320,
+                                        height: 200,
+                                        color: Colors.grey[800],
+                                        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                      ),
+                                      errorWidget: (context, url, error) => Container(
                                         width: 320,
                                         height: 200,
                                         color: Colors.grey[300],
@@ -1666,12 +1686,17 @@ class _GamePageState extends State<GamePage> {
                           leading: dlc.imageUrl.isNotEmpty
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
-                                  child: Image.network(
-                                    'https:${dlc.imageUrl}_100.jpg',
+                                  child: CachedNetworkImage(
+                                    imageUrl: 'https:${dlc.imageUrl}_100.jpg',
                                     width: 48,
                                     height: 48,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(Icons.extension),
+                                    placeholder: (context, url) => Container(
+                                      width: 48,
+                                      height: 48,
+                                      color: Colors.grey[800],
+                                    ),
+                                    errorWidget: (context, url, error) => const Icon(Icons.extension),
                                   ),
                                 )
                               : const Icon(Icons.extension),
