@@ -618,11 +618,19 @@ pub async fn install_game(game_id: i64, installer_path: String) -> Result<GameDt
 }
 
 pub async fn uninstall_game(game_id: i64) -> Result<()> {
-    let cache = APP_STATE.games_cache.lock().await;
-    let game = cache.get(&game_id)
+    let mut cache = APP_STATE.games_cache.lock().await;
+    let game = cache.get_mut(&game_id)
         .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?;
     
-    GameInstaller::uninstall_game(game)
+    GameInstaller::uninstall_game(game)?;
+    
+    // Clear the install directory to mark game as uninstalled
+    game.install_dir = String::new();
+    
+    // Update game in database
+    games_db::save_game(game)?;
+    
+    Ok(())
 }
 
 pub async fn install_dlc(game_id: i64, dlc_installer_path: String) -> Result<()> {
