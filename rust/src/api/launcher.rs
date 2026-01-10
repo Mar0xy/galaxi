@@ -214,18 +214,13 @@ pub fn get_execute_command_with_wine(game: &Game, global_wine_executable: Option
 
 fn get_wine_start_command(game: &Game) -> Result<Vec<String>> {
     let install_dir = PathBuf::from(&game.install_dir);
-    let prefix = install_dir.join("wine_prefix");
-    let _wine = get_wine_path(game);
     
     if install_dir.join("start.sh").exists() {
         return Ok(vec![install_dir.join("start.sh").to_string_lossy().to_string()]);
     }
     
-    let mut exe_cmd = get_windows_exe_cmd(game)?;
-    exe_cmd.insert(0, format!("WINEPREFIX={}", prefix.to_string_lossy()));
-    exe_cmd.insert(0, "env".to_string());
-    
-    Ok(exe_cmd)
+    // get_windows_exe_cmd already includes env, WINEPREFIX, and wine executable
+    get_windows_exe_cmd(game)
 }
 
 /// Helper function to parse goggame info file and return launch command
@@ -510,7 +505,7 @@ pub fn start_game_with_options(game: &Game, wine_options: WineLaunchOptions) -> 
     set_fps_display(game);
     
     let wine_exe_ref = wine_options.wine_executable.as_deref();
-    let exe_cmd = get_execute_command_with_wine(game, wine_exe_ref)?;
+    let mut exe_cmd = get_execute_command_with_wine(game, wine_exe_ref)?;
     
     if exe_cmd.is_empty() {
         return Ok(LaunchResult {
@@ -520,6 +515,15 @@ pub fn start_game_with_options(game: &Game, wine_options: WineLaunchOptions) -> 
         });
     }
     
+    // If the command starts with "env" and we need to disable NTSYNC,
+    // insert the environment variable as an argument to env
+    if wine_options.disable_ntsync && exe_cmd.first().map(|s| s.as_str()) == Some("env") {
+        // Find the position after env but before the actual command
+        // env VAR1=val1 VAR2=val2 command args...
+        let insert_pos = 1; // Right after "env"
+        exe_cmd.insert(insert_pos, "WINE_DISABLE_FAST_SYNC=1".to_string());
+    }
+    
     let install_dir = PathBuf::from(&game.install_dir);
     
     let mut cmd = Command::new(&exe_cmd[0]);
@@ -527,7 +531,7 @@ pub fn start_game_with_options(game: &Game, wine_options: WineLaunchOptions) -> 
         cmd.arg(arg);
     }
     
-    // Apply NTSYNC disable if requested (for Wine games)
+    // Also set as process environment for non-env commands (like start.sh)
     if wine_options.disable_ntsync {
         cmd.env("WINE_DISABLE_FAST_SYNC", "1");
     }
