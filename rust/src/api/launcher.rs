@@ -156,10 +156,10 @@ pub fn get_execute_command_with_wine(game: &Game, global_wine_executable: Option
             vec![install_dir.join("start.sh").to_string_lossy().to_string()]
         }
         LauncherType::Wine => {
-            get_wine_start_command(game)?
+            get_wine_start_command_with_fallback(game, global_wine_executable)?
         }
         LauncherType::Windows => {
-            get_windows_exe_cmd(game)?
+            get_windows_exe_cmd_with_fallback(game, global_wine_executable)?
         }
         LauncherType::DosBox => {
             get_dosbox_cmd(game)?
@@ -213,14 +213,18 @@ pub fn get_execute_command_with_wine(game: &Game, global_wine_executable: Option
 }
 
 fn get_wine_start_command(game: &Game) -> Result<Vec<String>> {
+    get_wine_start_command_with_fallback(game, None)
+}
+
+fn get_wine_start_command_with_fallback(game: &Game, global_wine_executable: Option<&str>) -> Result<Vec<String>> {
     let install_dir = PathBuf::from(&game.install_dir);
     
     if install_dir.join("start.sh").exists() {
         return Ok(vec![install_dir.join("start.sh").to_string_lossy().to_string()]);
     }
     
-    // get_windows_exe_cmd already includes env, WINEPREFIX, and wine executable
-    get_windows_exe_cmd(game)
+    // get_windows_exe_cmd_with_fallback already includes env, WINEPREFIX, and wine executable
+    get_windows_exe_cmd_with_fallback(game, global_wine_executable)
 }
 
 /// Helper function to parse goggame info file and return launch command
@@ -311,9 +315,13 @@ fn find_executable_in_dir(dir: &PathBuf, prefix: &PathBuf, wine: &str) -> Option
 }
 
 fn get_windows_exe_cmd(game: &Game) -> Result<Vec<String>> {
+    get_windows_exe_cmd_with_fallback(game, None)
+}
+
+fn get_windows_exe_cmd_with_fallback(game: &Game, global_wine_executable: Option<&str>) -> Result<Vec<String>> {
     let install_dir = PathBuf::from(&game.install_dir);
     let prefix = install_dir.join("wine_prefix");
-    let wine = get_wine_path(game);
+    let wine = get_wine_path_with_fallback(game, global_wine_executable);
     let drive_c = prefix.join("drive_c");
     
     // For Windows games installed via Wine, the game files are in wine_prefix/drive_c/game/
