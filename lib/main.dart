@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:minigalaxy_flutter/src/rust/api/simple.dart';
@@ -1609,34 +1610,44 @@ class _GamePageState extends State<GamePage> {
                       const SizedBox(height: 16),
                       SizedBox(
                         height: 200,
-                        child: Scrollbar(
-                          thumbVisibility: true,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            physics: const ClampingScrollPhysics(),
-                            itemCount: _screenshots.length,
-                            separatorBuilder: (_, __) => const SizedBox(width: 16),
-                            itemBuilder: (context, index) {
-                              final screenshot = _screenshots[index];
-                              return GestureDetector(
-                                onTap: () => _showFullScreenshot(context, index),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    screenshot,
-                                    height: 200,
-                                    width: 320,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      width: 320,
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (notification) => true, // Absorb scroll notifications
+                          child: ScrollConfiguration(
+                            behavior: ScrollConfiguration.of(context).copyWith(
+                              dragDevices: {
+                                PointerDeviceKind.mouse,
+                                PointerDeviceKind.touch,
+                                PointerDeviceKind.stylus,
+                                PointerDeviceKind.trackpad,
+                              },
+                            ),
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                              itemCount: _screenshots.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 16),
+                              itemBuilder: (context, index) {
+                                final screenshot = _screenshots[index];
+                                return GestureDetector(
+                                  onTap: () => _showFullScreenshot(context, index),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      screenshot,
                                       height: 200,
-                                      color: Colors.grey[300],
-                                      child: const Icon(Icons.broken_image, size: 48),
+                                      width: 320,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        width: 320,
+                                        height: 200,
+                                        color: Colors.grey[300],
+                                        child: const Icon(Icons.broken_image, size: 48),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              );
-                            },
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ),
