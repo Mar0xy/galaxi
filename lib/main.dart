@@ -784,12 +784,16 @@ class _LibraryPageState extends State<LibraryPage> {
                   // Background color for letterboxing
                   Container(color: Colors.grey[850] ?? Colors.grey[800]),
                   if (game.imageUrl.isNotEmpty)
-                    Image.network(
-                      'https:${game.imageUrl}_196.jpg',
-                      fit: BoxFit.cover, // Cover to fill without empty space
-                      errorBuilder: (_, __, ___) => Container(
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.games, size: 48),
+                    Center(
+                      child: Image.network(
+                        'https:${game.imageUrl}_196.jpg',
+                        fit: BoxFit.cover, // Cover to fill the space
+                        width: double.infinity,
+                        height: double.infinity,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.games, size: 48),
+                        ),
                       ),
                     )
                   else
@@ -1600,33 +1604,38 @@ class _GamePageState extends State<GamePage> {
                       const SizedBox(height: 16),
                       SizedBox(
                         height: 200,
-                        child: ListView.builder(
+                        child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
-                          itemCount: _screenshots.length,
-                          itemBuilder: (context, index) {
-                            return Padding(
-                              padding: EdgeInsets.only(
-                                right: index < _screenshots.length - 1 ? 16 : 0,
-                              ),
-                              child: GestureDetector(
-                                onTap: () => _showFullScreenshot(context, index),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    _screenshots[index],
-                                    height: 200,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      width: 320,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            children: _screenshots.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final screenshot = entry.value;
+                              return Padding(
+                                padding: EdgeInsets.only(
+                                  right: index < _screenshots.length - 1 ? 16 : 0,
+                                ),
+                                child: GestureDetector(
+                                  onTap: () => _showFullScreenshot(context, index),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      screenshot,
                                       height: 200,
-                                      color: Colors.grey[300],
-                                      child: const Icon(Icons.broken_image, size: 48),
+                                      width: 320,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        width: 320,
+                                        height: 200,
+                                        color: Colors.grey[300],
+                                        child: const Icon(Icons.broken_image, size: 48),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            }).toList(),
+                          ),
                         ),
                       ),
                     ],
