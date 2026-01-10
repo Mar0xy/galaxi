@@ -2,7 +2,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use super::config::{Config, IGNORE_GAME_IDS};
-use super::error::{MinigalaxyError, Result};
+use super::error::{GalaxiError, Result};
 use super::game::Game;
 
 /// GOG API client
@@ -225,7 +225,7 @@ impl GogApi {
         } else if let Some(code) = login_code {
             self.get_token(code).await
         } else {
-            Err(MinigalaxyError::AuthError("No authentication method provided".to_string()))
+            Err(GalaxiError::AuthError("No authentication method provided".to_string()))
         }
     }
 
@@ -273,7 +273,7 @@ impl GogApi {
 
     async fn request<T: for<'de> Deserialize<'de>>(&self, url: &str) -> Result<T> {
         let token = self.active_token.as_ref()
-            .ok_or_else(|| MinigalaxyError::AuthError("Not authenticated".to_string()))?;
+            .ok_or_else(|| GalaxiError::AuthError("Not authenticated".to_string()))?;
 
         let response = self.client
             .get(url)
@@ -350,7 +350,7 @@ impl GogApi {
         let url = format!("https://embed.gog.com/users/info/{}", user_id);
         
         let token = self.active_token.as_ref()
-            .ok_or_else(|| MinigalaxyError::AuthError("Not authenticated".to_string()))?;
+            .ok_or_else(|| GalaxiError::AuthError("Not authenticated".to_string()))?;
         
         // Parse the response as JSON Value to extract avatars
         let response: serde_json::Value = self.client
@@ -390,7 +390,7 @@ impl GogApi {
         let info = self.get_info(game).await?;
         
         let installers = info.downloads
-            .ok_or_else(|| MinigalaxyError::NoDownloadLinkFound(game.name.clone()))?
+            .ok_or_else(|| GalaxiError::NoDownloadLinkFound(game.name.clone()))?
             .installers;
 
         let os_options: Vec<&str> = if os == "linux" {
@@ -413,7 +413,7 @@ impl GogApi {
         }
 
         if possible_downloads.is_empty() {
-            return Err(MinigalaxyError::NoDownloadLinkFound(
+            return Err(GalaxiError::NoDownloadLinkFound(
                 format!("{} (id: {})", game.name, game.id)
             ));
         }
@@ -423,7 +423,7 @@ impl GogApi {
             .find(|i| i.language == self.config.lang)
             .or_else(|| possible_downloads.iter().find(|i| i.language == "en"))
             .or_else(|| possible_downloads.last())
-            .ok_or_else(|| MinigalaxyError::NoDownloadLinkFound(game.name.clone()))?;
+            .ok_or_else(|| GalaxiError::NoDownloadLinkFound(game.name.clone()))?;
 
         let total_size: i64 = download.files.iter().map(|f| f.size).sum();
         

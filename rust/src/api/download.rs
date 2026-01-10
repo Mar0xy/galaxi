@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use super::config::MINIMUM_RESUME_SIZE;
-use super::error::{MinigalaxyError, Result};
+use super::error::{GalaxiError, Result};
 
 /// Download progress information
 #[flutter_rust_bridge::frb(non_opaque)]
@@ -121,7 +121,7 @@ impl DownloadManager {
         let response = request.send().await?;
         
         if !response.status().is_success() && response.status().as_u16() != 206 {
-            return Err(MinigalaxyError::DownloadError(format!(
+            return Err(GalaxiError::DownloadError(format!(
                 "HTTP error: {}",
                 response.status()
             )));
@@ -140,7 +140,7 @@ impl DownloadManager {
         use futures_util::StreamExt;
         
         while let Some(chunk_result) = stream.next().await {
-            let chunk = chunk_result.map_err(|e| MinigalaxyError::DownloadError(e.to_string()))?;
+            let chunk = chunk_result.map_err(|e| GalaxiError::DownloadError(e.to_string()))?;
             file.write_all(&chunk)?;
             downloaded += chunk.len() as u64;
 
@@ -155,7 +155,7 @@ impl DownloadManager {
                     };
                     
                     if progress.status == DownloadStatus::Cancelled {
-                        return Err(MinigalaxyError::DownloadError("Download cancelled".to_string()));
+                        return Err(GalaxiError::DownloadError("Download cancelled".to_string()));
                     }
                 }
             }

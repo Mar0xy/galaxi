@@ -2,7 +2,7 @@ use thiserror::Error;
 use serde::{Deserialize, Serialize};
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum MinigalaxyError {
+pub enum GalaxiError {
     #[error("Authentication failed: {0}")]
     AuthError(String),
     
@@ -37,22 +37,22 @@ pub enum MinigalaxyError {
     Unknown(String),
 }
 
-impl From<reqwest::Error> for MinigalaxyError {
+impl From<reqwest::Error> for GalaxiError {
     fn from(err: reqwest::Error) -> Self {
-        MinigalaxyError::NetworkError(err.to_string())
+        GalaxiError::NetworkError(err.to_string())
     }
 }
 
-impl From<std::io::Error> for MinigalaxyError {
+impl From<std::io::Error> for GalaxiError {
     fn from(err: std::io::Error) -> Self {
-        MinigalaxyError::FileSystemError(err.to_string())
+        GalaxiError::FileSystemError(err.to_string())
     }
 }
 
-impl From<serde_json::Error> for MinigalaxyError {
+impl From<serde_json::Error> for GalaxiError {
     fn from(err: serde_json::Error) -> Self {
-        MinigalaxyError::ApiError(err.to_string())
+        GalaxiError::ApiError(err.to_string())
     }
 }
 
-pub type Result<T> = std::result::Result<T, MinigalaxyError>;
+pub type Result<T> = std::result::Result<T, GalaxiError>;

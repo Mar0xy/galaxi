@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-use super::error::{MinigalaxyError, Result};
+use super::error::{GalaxiError, Result};
 use super::game::Game;
 
 /// Wine installation options
@@ -47,7 +47,7 @@ impl GameInstaller {
         } else if file_name.ends_with(".exe") {
             Self::install_windows_game(installer_path, &install_path, game, &wine_options)?;
         } else {
-            return Err(MinigalaxyError::InstallError(
+            return Err(GalaxiError::InstallError(
                 format!("Unknown installer format: {}", file_name)
             ));
         }
@@ -62,7 +62,7 @@ impl GameInstaller {
             .arg("+x")
             .arg(installer_path)
             .output()
-            .map_err(|e| MinigalaxyError::InstallError(e.to_string()))?;
+            .map_err(|e| GalaxiError::InstallError(e.to_string()))?;
 
         let output = Command::new(installer_path)
             .arg("--")
@@ -72,10 +72,10 @@ impl GameInstaller {
             .arg("--destination")
             .arg(install_path)
             .output()
-            .map_err(|e| MinigalaxyError::InstallError(e.to_string()))?;
+            .map_err(|e| GalaxiError::InstallError(e.to_string()))?;
 
         if !output.status.success() {
-            return Err(MinigalaxyError::InstallError(
+            return Err(GalaxiError::InstallError(
                 String::from_utf8_lossy(&output.stderr).to_string()
             ));
         }
@@ -91,7 +91,7 @@ impl GameInstaller {
     ) -> Result<()> {
         // Verify installer file exists first
         if !installer_path.exists() {
-            return Err(MinigalaxyError::InstallError(format!(
+            return Err(GalaxiError::InstallError(format!(
                 "Installer file not found: {}",
                 installer_path.display()
             )));
@@ -123,7 +123,7 @@ impl GameInstaller {
         };
         
         if !wine_exists {
-            return Err(MinigalaxyError::InstallError(format!(
+            return Err(GalaxiError::InstallError(format!(
                 "Wine not found: '{}'. Please install Wine or set a valid custom Wine path in Settings.",
                 wine_path
             )));
@@ -167,14 +167,14 @@ impl GameInstaller {
                 retry_cmd.arg(&canonical_installer);
                 
                 let output = retry_cmd.output()
-                    .map_err(|e| MinigalaxyError::InstallError(format!(
+                    .map_err(|e| GalaxiError::InstallError(format!(
                         "Wine failed to start: {}",
                         e
                     )))?;
 
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&o.stderr);
-                    return Err(MinigalaxyError::InstallError(format!(
+                    return Err(GalaxiError::InstallError(format!(
                         "Wine installation failed: {}",
                         if stderr.is_empty() { "Unknown error" } else { &stderr }
                     )));
@@ -182,7 +182,7 @@ impl GameInstaller {
                 Ok(())
             }
             Err(e) => {
-                Err(MinigalaxyError::InstallError(format!(
+                Err(GalaxiError::InstallError(format!(
                     "Failed to run Wine: {}",
                     e
                 )))
@@ -294,7 +294,7 @@ impl GameInstaller {
             .arg(&winetricks_path)
             .arg(url)
             .output()
-            .map_err(|e| MinigalaxyError::InstallError(format!("Failed to download winetricks: {}", e)))?;
+            .map_err(|e| GalaxiError::InstallError(format!("Failed to download winetricks: {}", e)))?;
         
         if !output.status.success() {
             // Try wget as fallback
@@ -303,10 +303,10 @@ impl GameInstaller {
                 .arg(&winetricks_path)
                 .arg(url)
                 .output()
-                .map_err(|e| MinigalaxyError::InstallError(format!("Failed to download winetricks: {}", e)))?;
+                .map_err(|e| GalaxiError::InstallError(format!("Failed to download winetricks: {}", e)))?;
             
             if !output.status.success() {
-                return Err(MinigalaxyError::InstallError(
+                return Err(GalaxiError::InstallError(
                     "Failed to download winetricks. Please install it manually.".to_string()
                 ));
             }
@@ -317,7 +317,7 @@ impl GameInstaller {
             .arg("+x")
             .arg(&winetricks_path)
             .output()
-            .map_err(|e| MinigalaxyError::InstallError(format!("Failed to make winetricks executable: {}", e)))?;
+            .map_err(|e| GalaxiError::InstallError(format!("Failed to make winetricks executable: {}", e)))?;
         
         Ok(winetricks_path)
     }
@@ -329,7 +329,7 @@ impl GameInstaller {
 
     pub fn uninstall_game(game: &Game) -> Result<()> {
         if !game.is_installed() {
-            return Err(MinigalaxyError::InstallError(
+            return Err(GalaxiError::InstallError(
                 "Game is not installed".to_string()
             ));
         }
@@ -357,7 +357,7 @@ impl GameInstaller {
         wine_options: WineOptions,
     ) -> Result<()> {
         if !game.is_installed() {
-            return Err(MinigalaxyError::InstallError(
+            return Err(GalaxiError::InstallError(
                 "Base game must be installed first".to_string()
             ));
         }
@@ -381,7 +381,7 @@ impl GameInstaller {
 #[flutter_rust_bridge::frb(ignore)]
 pub fn verify_game_files(game: &Game) -> Result<bool> {
     if !game.is_installed() {
-        return Err(MinigalaxyError::InstallError(
+        return Err(GalaxiError::InstallError(
             "Game is not installed".to_string()
         ));
     }

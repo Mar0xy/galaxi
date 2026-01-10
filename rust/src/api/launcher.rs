@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use serde::{Deserialize, Serialize};
 use super::config::BINARY_NAMES_TO_IGNORE;
-use super::error::{MinigalaxyError, Result};
+use super::error::{GalaxiError, Result};
 use super::game::Game;
 
 /// Wine launch options
@@ -171,7 +171,7 @@ pub fn get_execute_command_with_wine(game: &Game, global_wine_executable: Option
             get_final_resort_cmd(game)?
         }
         LauncherType::Unknown => {
-            return Err(MinigalaxyError::LaunchError(
+            return Err(GalaxiError::LaunchError(
                 format!("No executable found in {}", game.install_dir)
             ));
         }
@@ -395,7 +395,7 @@ fn get_windows_exe_cmd_with_fallback(game: &Game, global_wine_executable: Option
         return Ok(cmd);
     }
     
-    Err(MinigalaxyError::LaunchError(
+    Err(GalaxiError::LaunchError(
         format!("No Windows executable found in {} or {}", game_dir.display(), install_dir.display())
     ))
 }
@@ -476,7 +476,7 @@ fn get_final_resort_cmd(game: &Game) -> Result<Vec<String>> {
         }
     }
     
-    Err(MinigalaxyError::LaunchError(
+    Err(GalaxiError::LaunchError(
         "No executable found in game directory".to_string()
     ))
 }
@@ -569,7 +569,7 @@ pub fn start_game_with_options(game: &Game, wine_options: WineLaunchOptions) -> 
 #[flutter_rust_bridge::frb(ignore)]
 pub fn config_game(game: &Game) -> Result<()> {
     if !game.is_installed() {
-        return Err(MinigalaxyError::LaunchError("Game is not installed".to_string()));
+        return Err(GalaxiError::LaunchError("Game is not installed".to_string()));
     }
     
     let prefix = PathBuf::from(&game.install_dir).join("wine_prefix");
@@ -580,7 +580,7 @@ pub fn config_game(game: &Game) -> Result<()> {
         .arg(&wine)
         .arg("winecfg")
         .spawn()
-        .map_err(|e| MinigalaxyError::LaunchError(e.to_string()))?;
+        .map_err(|e| GalaxiError::LaunchError(e.to_string()))?;
     
     Ok(())
 }
@@ -588,7 +588,7 @@ pub fn config_game(game: &Game) -> Result<()> {
 #[flutter_rust_bridge::frb(ignore)]
 pub fn regedit_game(game: &Game) -> Result<()> {
     if !game.is_installed() {
-        return Err(MinigalaxyError::LaunchError("Game is not installed".to_string()));
+        return Err(GalaxiError::LaunchError("Game is not installed".to_string()));
     }
     
     let prefix = PathBuf::from(&game.install_dir).join("wine_prefix");
@@ -599,7 +599,7 @@ pub fn regedit_game(game: &Game) -> Result<()> {
         .arg(&wine)
         .arg("regedit")
         .spawn()
-        .map_err(|e| MinigalaxyError::LaunchError(e.to_string()))?;
+        .map_err(|e| GalaxiError::LaunchError(e.to_string()))?;
     
     Ok(())
 }
@@ -607,7 +607,7 @@ pub fn regedit_game(game: &Game) -> Result<()> {
 #[flutter_rust_bridge::frb(ignore)]
 pub fn winetricks_game(game: &Game) -> Result<()> {
     if !game.is_installed() {
-        return Err(MinigalaxyError::LaunchError("Game is not installed".to_string()));
+        return Err(GalaxiError::LaunchError("Game is not installed".to_string()));
     }
     
     let prefix = PathBuf::from(&game.install_dir).join("wine_prefix");
@@ -616,7 +616,7 @@ pub fn winetricks_game(game: &Game) -> Result<()> {
         .arg(format!("WINEPREFIX={}", prefix.to_string_lossy()))
         .arg("winetricks")
         .spawn()
-        .map_err(|e| MinigalaxyError::LaunchError(e.to_string()))?;
+        .map_err(|e| GalaxiError::LaunchError(e.to_string()))?;
     
     Ok(())
 }

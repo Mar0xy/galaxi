@@ -50,11 +50,11 @@ jobs:
       - name: Package Linux app
         run: |
           cd build/linux/x64/release/bundle
-          tar -czvf ../../../../../minigalaxy-linux-x64.tar.gz *
+          tar -czvf ../../../../../galaxi-linux-x64.tar.gz *
       
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
-          name: minigalaxy-linux-x64
-          path: minigalaxy-linux-x64.tar.gz
+          name: galaxi-linux-x64
+          path: galaxi-linux-x64.tar.gz
           retention-days: 30

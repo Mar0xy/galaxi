@@ -265,7 +265,7 @@ fn get_default_install_dir() -> String {
 pub fn get_config_file_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from(".config"))
-        .join("minigalaxy")
+        .join("galaxi")
         .join("config.json")
 }
 
@@ -273,14 +273,14 @@ pub fn get_config_file_path() -> PathBuf {
 pub fn get_data_dir() -> PathBuf {
     dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from(".local/share"))
-        .join("minigalaxy")
+        .join("galaxi")
 }
 
 #[flutter_rust_bridge::frb(ignore)]
 pub fn get_cache_dir() -> PathBuf {
     dirs::cache_dir()
         .unwrap_or_else(|| PathBuf::from(".cache"))
-        .join("minigalaxy")
+        .join("galaxi")
 }
 
 #[flutter_rust_bridge::frb(ignore)]

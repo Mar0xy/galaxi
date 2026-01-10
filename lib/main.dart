@@ -329,7 +329,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Minigalaxy',
+              'Galaxi',
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
@@ -583,7 +583,7 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Minigalaxy'),
+        title: const Text('Galaxi'),
         actions: [
           IconButton(
             icon: Icon(_viewMode == 'grid' ? Icons.grid_view : Icons.list),
@@ -1182,9 +1182,9 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: () {
               showAboutDialog(
                 context: context,
-                applicationName: 'Minigalaxy',
+                applicationName: 'Galaxi',
                 applicationVersion: '1.0.0',
-                applicationLegalese: '© 2024 Minigalaxy Flutter',
+                applicationLegalese: '© 2026 Galaxi',
                 children: [
                   const SizedBox(height: 16),
                   const Text(

@@ -7,7 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
-  rust_lib_minigalaxy_flutter
+  rust_lib_galaxi
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

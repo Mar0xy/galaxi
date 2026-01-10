@@ -10,7 +10,7 @@ use super::dto::{
     GameDto, AccountDto, UserDataDto, DownloadProgressDto, 
     GameInfoDto, GamesDbInfoDto, LaunchResultDto, ConfigDto,
 };
-use super::error::{MinigalaxyError, Result};
+use super::error::{GalaxiError, Result};
 use super::game::Game;
 use super::gog_api::GogApi;
 use super::installer::{GameInstaller, WineOptions};
@@ -144,7 +144,7 @@ pub async fn logout() -> Result<()> {
 pub async fn get_user_data() -> Result<UserDataDto> {
     let api_guard = APP_STATE.api.lock().await;
     let api = api_guard.as_ref()
-        .ok_or_else(|| MinigalaxyError::AuthError("Not authenticated".to_string()))?;
+        .ok_or_else(|| GalaxiError::AuthError("Not authenticated".to_string()))?;
     
     let user_data = api.get_user_info().await?;
     Ok(UserDataDto::from(user_data))
@@ -166,7 +166,7 @@ pub async fn get_active_account() -> Result<Option<AccountDto>> {
 pub async fn add_current_account(refresh_token: String) -> Result<AccountDto> {
     let api_guard = APP_STATE.api.lock().await;
     let api = api_guard.as_ref()
-        .ok_or_else(|| MinigalaxyError::AuthError("Not authenticated".to_string()))?;
+        .ok_or_else(|| GalaxiError::AuthError("Not authenticated".to_string()))?;
     
     let user_data = api.get_user_info().await?;
     let avatar = fetch_user_avatar(api, &user_data.user_id).await.ok().flatten();
@@ -225,7 +225,7 @@ pub async fn remove_account(user_id: String) -> Result<()> {
 pub async fn get_library() -> Result<Vec<GameDto>> {
     let api_guard = APP_STATE.api.lock().await;
     let api = api_guard.as_ref()
-        .ok_or_else(|| MinigalaxyError::AuthError("Not authenticated".to_string()))?;
+        .ok_or_else(|| GalaxiError::AuthError("Not authenticated".to_string()))?;
     
     let mut games = api.get_library().await?;
     
@@ -334,11 +334,11 @@ pub async fn get_cached_games() -> Result<Vec<GameDto>> {
 pub async fn get_game_info(game_id: i64) -> Result<GameInfoDto> {
     let api_guard = APP_STATE.api.lock().await;
     let api = api_guard.as_ref()
-        .ok_or_else(|| MinigalaxyError::AuthError("Not authenticated".to_string()))?;
+        .ok_or_else(|| GalaxiError::AuthError("Not authenticated".to_string()))?;
     
     let cache = APP_STATE.games_cache.lock().await;
     let game = cache.get(&game_id)
-        .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
+        .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?;
     
     let info = api.get_info(game).await?;
     Ok(GameInfoDto::from(info))
@@ -347,11 +347,11 @@ pub async fn get_game_info(game_id: i64) -> Result<GameInfoDto> {
 pub async fn get_gamesdb_info(game_id: i64) -> Result<GamesDbInfoDto> {
     let api_guard = APP_STATE.api.lock().await;
     let api = api_guard.as_ref()
-        .ok_or_else(|| MinigalaxyError::AuthError("Not authenticated".to_string()))?;
+        .ok_or_else(|| GalaxiError::AuthError("Not authenticated".to_string()))?;
     
     let cache = APP_STATE.games_cache.lock().await;
     let game = cache.get(&game_id)
-        .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
+        .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?;
     
     let info = api.get_gamesdb_info(game).await?;
     Ok(GamesDbInfoDto::from(info))
@@ -360,11 +360,11 @@ pub async fn get_gamesdb_info(game_id: i64) -> Result<GamesDbInfoDto> {
 pub async fn get_game_version(game_id: i64) -> Result<String> {
     let api_guard = APP_STATE.api.lock().await;
     let api = api_guard.as_ref()
-        .ok_or_else(|| MinigalaxyError::AuthError("Not authenticated".to_string()))?;
+        .ok_or_else(|| GalaxiError::AuthError("Not authenticated".to_string()))?;
     
     let cache = APP_STATE.games_cache.lock().await;
     let game = cache.get(&game_id)
-        .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
+        .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?;
     
     api.get_version(game).await
 }
@@ -374,7 +374,7 @@ pub async fn check_for_update(game_id: i64) -> Result<bool> {
     
     let cache = APP_STATE.games_cache.lock().await;
     let game = cache.get(&game_id)
-        .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
+        .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?;
     
     game.is_update_available(&version, None)
 }
@@ -394,11 +394,11 @@ fn extract_filename_from_url(url: &str) -> String {
 pub async fn start_download(game_id: i64) -> Result<String> {
     let api_guard = APP_STATE.api.lock().await;
     let api = api_guard.as_ref()
-        .ok_or_else(|| MinigalaxyError::AuthError("Not authenticated".to_string()))?;
+        .ok_or_else(|| GalaxiError::AuthError("Not authenticated".to_string()))?;
     
     let cache = APP_STATE.games_cache.lock().await;
     let game = cache.get(&game_id)
-        .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?
+        .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?
         .clone();
     drop(cache);
     
@@ -490,10 +490,10 @@ pub async fn download_and_install(game_id: i64) -> Result<GameDto> {
         match progress {
             Some(p) if p.status == "Completed" => break,
             Some(p) if p.status == "Failed" => {
-                return Err(MinigalaxyError::DownloadError("Download failed".to_string()));
+                return Err(GalaxiError::DownloadError("Download failed".to_string()));
             }
             Some(p) if p.status == "Cancelled" => {
-                return Err(MinigalaxyError::DownloadError("Download cancelled".to_string()));
+                return Err(GalaxiError::DownloadError("Download cancelled".to_string()));
             }
             Some(_) => {
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -578,14 +578,14 @@ pub async fn install_game(game_id: i64, installer_path: String) -> Result<GameDt
                         })
                         .unwrap_or_default();
                     
-                    return Err(MinigalaxyError::InstallError(format!(
+                    return Err(GalaxiError::InstallError(format!(
                         "Installer file not found: '{}'. Files in directory: {:?}",
                         installer_path,
                         files
                     )));
                 }
             }
-            return Err(MinigalaxyError::InstallError(format!(
+            return Err(GalaxiError::InstallError(format!(
                 "Installer file not found: {}",
                 installer_path
             )));
@@ -595,7 +595,7 @@ pub async fn install_game(game_id: i64, installer_path: String) -> Result<GameDt
     
     let mut cache = APP_STATE.games_cache.lock().await;
     let game = cache.get_mut(&game_id)
-        .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
+        .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?;
     
     let config = APP_STATE.config.lock().await.clone();
     
@@ -620,7 +620,7 @@ pub async fn install_game(game_id: i64, installer_path: String) -> Result<GameDt
 pub async fn uninstall_game(game_id: i64) -> Result<()> {
     let cache = APP_STATE.games_cache.lock().await;
     let game = cache.get(&game_id)
-        .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
+        .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?;
     
     GameInstaller::uninstall_game(game)
 }
@@ -628,7 +628,7 @@ pub async fn uninstall_game(game_id: i64) -> Result<()> {
 pub async fn install_dlc(game_id: i64, dlc_installer_path: String) -> Result<()> {
     let cache = APP_STATE.games_cache.lock().await;
     let game = cache.get(&game_id)
-        .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
+        .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?;
     
     let config = APP_STATE.config.lock().await.clone();
     let wine_options = WineOptions {
@@ -647,13 +647,13 @@ pub fn launch_game(_game_id: i64) -> Result<LaunchResultDto> {
     // We need to get game from cache synchronously, but cache uses async mutex
     // For sync functions, we'll need to use a different approach
     // For now, return an error indicating this should be called via async
-    Err(MinigalaxyError::LaunchError("Use launch_game_async instead".to_string()))
+    Err(GalaxiError::LaunchError("Use launch_game_async instead".to_string()))
 }
 
 pub async fn launch_game_async(game_id: i64) -> Result<LaunchResultDto> {
     let cache = APP_STATE.games_cache.lock().await;
     let game = cache.get(&game_id)
-        .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
+        .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?;
     
     let config = APP_STATE.config.lock().await.clone();
     
@@ -670,7 +670,7 @@ pub async fn launch_game_async(game_id: i64) -> Result<LaunchResultDto> {
 pub async fn open_wine_config(game_id: i64) -> Result<()> {
     let cache = APP_STATE.games_cache.lock().await;
     let game = cache.get(&game_id)
-        .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
+        .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?;
     
     launcher::config_game(game)
 }
@@ -678,7 +678,7 @@ pub async fn open_wine_config(game_id: i64) -> Result<()> {
 pub async fn open_wine_regedit(game_id: i64) -> Result<()> {
     let cache = APP_STATE.games_cache.lock().await;
     let game = cache.get(&game_id)
-        .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
+        .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?;
     
     launcher::regedit_game(game)
 }
@@ -686,7 +686,7 @@ pub async fn open_wine_regedit(game_id: i64) -> Result<()> {
 pub async fn open_winetricks(game_id: i64) -> Result<()> {
     let cache = APP_STATE.games_cache.lock().await;
     let game = cache.get(&game_id)
-        .ok_or_else(|| MinigalaxyError::NotFoundError("Game not found in cache".to_string()))?;
+        .ok_or_else(|| GalaxiError::NotFoundError("Game not found in cache".to_string()))?;
     
     launcher::winetricks_game(game)
 }
@@ -841,7 +841,7 @@ pub async fn open_wine_config_global() -> Result<()> {
     }
     
     cmd.spawn()
-        .map_err(|e| super::error::MinigalaxyError::LaunchError(format!("Failed to open winecfg: {}", e)))?;
+        .map_err(|e| super::error::GalaxiError::LaunchError(format!("Failed to open winecfg: {}", e)))?;
     
     Ok(())
 }
@@ -856,7 +856,7 @@ pub async fn open_winetricks_global() -> Result<()> {
     }
     
     cmd.spawn()
-        .map_err(|e| super::error::MinigalaxyError::LaunchError(format!("Failed to open winetricks: {}", e)))?;
+        .map_err(|e| super::error::GalaxiError::LaunchError(format!("Failed to open winetricks: {}", e)))?;
     
     Ok(())
 }
