@@ -37,6 +37,11 @@ lib/src/rust/**
 rust/target/
 rust/Cargo.lock
 
+# TypeScript/Node.js artifacts
+typescript/node_modules/
+typescript/dist/
+typescript/package-lock.json
+
 # Symbolication related
 app.*.symbols
 
