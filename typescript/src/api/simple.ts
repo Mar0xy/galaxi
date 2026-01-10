@@ -275,7 +275,7 @@ export async function getGamesDbInfo(gameId: number): Promise<GamesDbInfoDto> {
 // Installation API
 // ============================================================================
 
-export async function installGame(gameId: number, installerUrl: string): Promise<void> {
+export async function installGame(gameId: number, installerUrl: string): Promise<GameDto> {
   const game = APP_STATE.gamesCache.get(gameId);
   if (!game) {
     throw new GalaxiError('Game not found', GalaxiErrorType.NotFoundError);
@@ -296,7 +296,7 @@ export async function installGame(gameId: number, installerUrl: string): Promise
   
   // Update cache and database
   APP_STATE.gamesCache.set(gameId, game);
-  gamesDb().saveGame({
+  const gameDto: GameDto = {
     id: game.id,
     name: game.name,
     url: game.url,
@@ -310,7 +310,10 @@ export async function installGame(gameId: number, installerUrl: string): Promise
       title: d.title,
       image_url: d.image_url,
     })),
-  });
+  };
+  gamesDb().saveGame(gameDto);
+  
+  return gameDto;
 }
 
 // ============================================================================
@@ -355,6 +358,478 @@ export async function getDarkTheme(): Promise<boolean> {
 export async function setDarkTheme(value: boolean): Promise<void> {
   APP_STATE.config.use_dark_theme = value;
   APP_STATE.config.save();
+}
+
+// ============================================================================
+// Additional Configuration API
+// ============================================================================
+
+export async function getInstallDir(): Promise<string> {
+  return APP_STATE.config.install_dir;
+}
+
+export async function setInstallDir(dir: string): Promise<void> {
+  APP_STATE.config.install_dir = dir;
+  APP_STATE.config.save();
+}
+
+export async function getLanguage(): Promise<string> {
+  return APP_STATE.config.lang;
+}
+
+export async function setLanguage(lang: string): Promise<void> {
+  APP_STATE.config.lang = lang;
+  APP_STATE.config.save();
+}
+
+export async function getViewMode(): Promise<string> {
+  return APP_STATE.config.view;
+}
+
+export async function setViewMode(view: string): Promise<void> {
+  APP_STATE.config.view = view;
+  APP_STATE.config.save();
+}
+
+export async function getShowWindowsGames(): Promise<boolean> {
+  return APP_STATE.config.show_windows_games;
+}
+
+export async function setShowWindowsGames(enabled: boolean): Promise<void> {
+  APP_STATE.config.show_windows_games = enabled;
+  APP_STATE.config.save();
+}
+
+export async function getShowHiddenGames(): Promise<boolean> {
+  return APP_STATE.config.show_hidden_games;
+}
+
+export async function setShowHiddenGames(enabled: boolean): Promise<void> {
+  APP_STATE.config.show_hidden_games = enabled;
+  APP_STATE.config.save();
+}
+
+export async function getKeepInstallers(): Promise<boolean> {
+  return APP_STATE.config.keep_installers;
+}
+
+export async function setKeepInstallers(enabled: boolean): Promise<void> {
+  APP_STATE.config.keep_installers = enabled;
+  APP_STATE.config.save();
+}
+
+export async function getWinePrefix(): Promise<string> {
+  return APP_STATE.config.wine_prefix;
+}
+
+export async function setWinePrefix(prefix: string): Promise<void> {
+  APP_STATE.config.wine_prefix = prefix;
+  APP_STATE.config.save();
+}
+
+export async function getWineExecutable(): Promise<string> {
+  return APP_STATE.config.wine_executable;
+}
+
+export async function setWineExecutable(executable: string): Promise<void> {
+  APP_STATE.config.wine_executable = executable;
+  APP_STATE.config.save();
+}
+
+export async function getWineDebug(): Promise<boolean> {
+  return APP_STATE.config.wine_debug;
+}
+
+export async function setWineDebug(enabled: boolean): Promise<void> {
+  APP_STATE.config.wine_debug = enabled;
+  APP_STATE.config.save();
+}
+
+export async function getWineDisableNtsync(): Promise<boolean> {
+  return APP_STATE.config.wine_disable_ntsync;
+}
+
+export async function setWineDisableNtsync(enabled: boolean): Promise<void> {
+  APP_STATE.config.wine_disable_ntsync = enabled;
+  APP_STATE.config.save();
+}
+
+export async function getWineAutoInstallDxvk(): Promise<boolean> {
+  return APP_STATE.config.wine_auto_install_dxvk;
+}
+
+export async function setWineAutoInstallDxvk(enabled: boolean): Promise<void> {
+  APP_STATE.config.wine_auto_install_dxvk = enabled;
+  APP_STATE.config.save();
+}
+
+// ============================================================================
+// Additional Library API
+// ============================================================================
+
+export async function getCachedGames(): Promise<GameDto[]> {
+  const games = Array.from(APP_STATE.gamesCache.values());
+  return games.map(g => ({
+    id: g.id,
+    name: g.name,
+    url: g.url,
+    install_dir: g.install_dir,
+    image_url: g.image_url,
+    platform: g.platform,
+    category: g.category,
+    dlcs: g.dlcs.map(d => ({
+      id: d.id,
+      name: d.name,
+      title: d.title,
+      image_url: d.image_url,
+    })),
+  }));
+}
+
+function normalizeDirName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim();
+}
+
+export async function scanForInstalledGames(): Promise<number> {
+  const installBase = APP_STATE.config.install_dir;
+  
+  if (!require('fs').existsSync(installBase)) {
+    return 0;
+  }
+  
+  let updatedCount = 0;
+  const fs = require('fs');
+  const path = require('path');
+  
+  try {
+    const entries = fs.readdirSync(installBase);
+    
+    for (const entry of entries) {
+      const fullPath = path.join(installBase, entry);
+      const stats = fs.statSync(fullPath);
+      
+      if (!stats.isDirectory()) {
+        continue;
+      }
+      
+      // Skip .downloads folder
+      if (entry.startsWith('.')) {
+        continue;
+      }
+      
+      // Check if this directory has wine_prefix/drive_c (Windows game) or a start script (Linux game)
+      const winePrefix = path.join(fullPath, 'wine_prefix', 'drive_c');
+      const startScript = path.join(fullPath, 'start.sh');
+      const isInstalled = fs.existsSync(winePrefix) || fs.existsSync(startScript);
+      
+      if (!isInstalled) {
+        continue;
+      }
+      
+      // Normalize the directory name for comparison
+      const normalizedDir = normalizeDirName(entry);
+      
+      // Try to find a matching game in the cache
+      for (const game of APP_STATE.gamesCache.values()) {
+        const gameDir = game.name.replace(/[^a-zA-Z0-9\s]/g, '');
+        const normalizedGameDir = normalizeDirName(gameDir);
+        
+        // Match by normalized name
+        if (normalizedGameDir === normalizedDir && !game.install_dir) {
+          // Found a match - update install_dir
+          game.install_dir = fullPath;
+          gamesDb().saveGame({
+            id: game.id,
+            name: game.name,
+            url: game.url,
+            install_dir: game.install_dir,
+            image_url: game.image_url,
+            platform: game.platform,
+            category: game.category,
+            dlcs: game.dlcs.map(d => ({
+              id: d.id,
+              name: d.name,
+              title: d.title,
+              image_url: d.image_url,
+            })),
+          });
+          updatedCount++;
+          break;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error scanning for installed games:', error);
+  }
+  
+  return updatedCount;
+}
+
+// ============================================================================
+// Download API
+// ============================================================================
+
+function extractFilenameFromUrl(url: string): string {
+  const parts = url.split('/');
+  const rawName = parts[parts.length - 1].split('?')[0];
+  return decodeURIComponent(rawName);
+}
+
+export async function startDownload(gameId: number): Promise<string> {
+  if (!APP_STATE.api) {
+    throw new GalaxiError('Not authenticated', GalaxiErrorType.AuthError);
+  }
+  
+  const game = APP_STATE.gamesCache.get(gameId);
+  if (!game) {
+    throw new GalaxiError('Game not found', GalaxiErrorType.NotFoundError);
+  }
+  
+  // Get download info
+  const info = await APP_STATE.api.getInfo(game);
+  
+  if (!info.downloads || info.downloads.installers.length === 0) {
+    throw new GalaxiError('No installers available', GalaxiErrorType.NoDownloadLinkFound);
+  }
+  
+  // Find installer for the game platform
+  const installer = info.downloads.installers.find(i => 
+    i.os.toLowerCase() === game.platform.toLowerCase()
+  ) || info.downloads.installers[0];
+  
+  if (!installer.files || installer.files.length === 0) {
+    throw new GalaxiError('No download files available', GalaxiErrorType.NoDownloadLinkFound);
+  }
+  
+  const fs = require('fs');
+  const path = require('path');
+  
+  // Create downloads directory
+  const downloadsDir = path.join(APP_STATE.config.install_dir, '.downloads');
+  if (!fs.existsSync(downloadsDir)) {
+    fs.mkdirSync(downloadsDir, { recursive: true });
+  }
+  
+  // Download the first file
+  const file = installer.files[0];
+  const realLink = await APP_STATE.api.getDownloadLink(file.downlink);
+  const fileName = extractFilenameFromUrl(realLink);
+  const savePath = path.join(downloadsDir, fileName);
+  
+  // Check if already downloaded
+  if (fs.existsSync(savePath)) {
+    return savePath;
+  }
+  
+  // Start download in background
+  setTimeout(async () => {
+    try {
+      await APP_STATE.downloadManager.downloadFile(game, realLink, savePath);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  }, 0);
+  
+  return savePath;
+}
+
+export async function downloadAndInstall(gameId: number): Promise<GameDto> {
+  // Start download
+  const installerPath = await startDownload(gameId);
+  
+  // Wait for download to complete
+  while (true) {
+    const progress = APP_STATE.downloadManager.getProgress(gameId);
+    if (!progress) {
+      break;
+    }
+    if (progress.status === 'Completed') {
+      break;
+    }
+    if (progress.status === 'Failed') {
+      throw new GalaxiError('Download failed', GalaxiErrorType.DownloadError);
+    }
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  
+  // Install the game
+  const gameDto = await installGame(gameId, installerPath);
+  
+  // Clean up installer if not keeping them
+  if (!APP_STATE.config.keep_installers) {
+    const fs = require('fs');
+    const path = require('path');
+    const downloadsDir = path.join(APP_STATE.config.install_dir, '.downloads');
+    try {
+      fs.rmSync(downloadsDir, { recursive: true, force: true });
+    } catch (error) {
+      console.error('Failed to clean up installer:', error);
+    }
+  }
+  
+  return gameDto;
+}
+
+export async function pauseDownload(gameId: number): Promise<void> {
+  APP_STATE.downloadManager.pauseDownload(gameId);
+}
+
+export async function cancelDownload(gameId: number): Promise<void> {
+  APP_STATE.downloadManager.cancelDownload(gameId);
+}
+
+export async function getDownloadProgress(gameId: number): Promise<DownloadProgressDto | null> {
+  const progress = APP_STATE.downloadManager.getProgress(gameId);
+  if (!progress) {
+    return null;
+  }
+  
+  return {
+    game_id: progress.game_id,
+    game_name: progress.file_name,
+    downloaded_bytes: progress.downloaded,
+    total_bytes: progress.total,
+    speed_bytes_per_sec: 0,
+    status: progress.status.toString(),
+  };
+}
+
+export async function getActiveDownloads(): Promise<DownloadProgressDto[]> {
+  // Not yet implemented - would need to track multiple downloads
+  return [];
+}
+
+// ============================================================================
+// Installation API (continued)
+// ============================================================================
+
+export async function uninstallGame(gameId: number): Promise<void> {
+  const game = APP_STATE.gamesCache.get(gameId);
+  if (!game) {
+    throw new GalaxiError('Game not found', GalaxiErrorType.NotFoundError);
+  }
+  
+  const fs = require('fs');
+  
+  if (game.install_dir && fs.existsSync(game.install_dir)) {
+    try {
+      fs.rmSync(game.install_dir, { recursive: true, force: true });
+    } catch (error: any) {
+      throw new GalaxiError(
+        `Failed to uninstall game: ${error.message}`,
+        GalaxiErrorType.FileSystemError
+      );
+    }
+  }
+  
+  game.install_dir = '';
+  
+  // Update in database
+  gamesDb().saveGame({
+    id: game.id,
+    name: game.name,
+    url: game.url,
+    install_dir: game.install_dir,
+    image_url: game.image_url,
+    platform: game.platform,
+    category: game.category,
+    dlcs: game.dlcs.map(d => ({
+      id: d.id,
+      name: d.name,
+      title: d.title,
+      image_url: d.image_url,
+    })),
+  });
+}
+
+export async function installDlc(gameId: number, dlcInstallerPath: string): Promise<void> {
+  const game = APP_STATE.gamesCache.get(gameId);
+  if (!game) {
+    throw new GalaxiError('Game not found', GalaxiErrorType.NotFoundError);
+  }
+  
+  const wineOptions = {
+    prefix: APP_STATE.config.wine_prefix,
+    executable: APP_STATE.config.wine_executable,
+    debug: APP_STATE.config.wine_debug,
+    disable_ntsync: APP_STATE.config.wine_disable_ntsync,
+    auto_install_dxvk: false, // Don't re-install DXVK for DLC
+  };
+  
+  // Install DLC to the game directory
+  await APP_STATE.installer.installGame(game, dlcInstallerPath, game.install_dir, wineOptions);
+}
+
+// ============================================================================
+// Wine Tools API
+// ============================================================================
+
+export async function openWineConfig(gameId: number): Promise<void> {
+  const game = APP_STATE.gamesCache.get(gameId);
+  if (!game) {
+    throw new GalaxiError('Game not found', GalaxiErrorType.NotFoundError);
+  }
+  
+  const winePrefix = APP_STATE.config.wine_prefix || `${game.install_dir}/wine_prefix`;
+  const wineExec = APP_STATE.config.wine_executable || 'wine';
+  
+  const child_process = require('child_process');
+  const env: any = {
+    ...process.env,
+    WINEPREFIX: winePrefix,
+  };
+  
+  child_process.spawn(wineExec, ['winecfg'], {
+    env,
+    detached: true,
+    stdio: 'ignore',
+  }).unref();
+}
+
+export async function openWineRegedit(gameId: number): Promise<void> {
+  const game = APP_STATE.gamesCache.get(gameId);
+  if (!game) {
+    throw new GalaxiError('Game not found', GalaxiErrorType.NotFoundError);
+  }
+  
+  const winePrefix = APP_STATE.config.wine_prefix || `${game.install_dir}/wine_prefix`;
+  const wineExec = APP_STATE.config.wine_executable || 'wine';
+  
+  const child_process = require('child_process');
+  const env: any = {
+    ...process.env,
+    WINEPREFIX: winePrefix,
+  };
+  
+  child_process.spawn(wineExec, ['regedit'], {
+    env,
+    detached: true,
+    stdio: 'ignore',
+  }).unref();
+}
+
+export async function openWinetricks(gameId: number): Promise<void> {
+  const game = APP_STATE.gamesCache.get(gameId);
+  if (!game) {
+    throw new GalaxiError('Game not found', GalaxiErrorType.NotFoundError);
+  }
+  
+  const winePrefix = APP_STATE.config.wine_prefix || `${game.install_dir}/wine_prefix`;
+  
+  const child_process = require('child_process');
+  const env: any = {
+    ...process.env,
+    WINEPREFIX: winePrefix,
+  };
+  
+  child_process.spawn('winetricks', [], {
+    env,
+    detached: true,
+    stdio: 'ignore',
+  }).unref();
 }
 
 // Export types

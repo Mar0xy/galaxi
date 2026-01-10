@@ -131,9 +131,36 @@ export class Config {
   }
 
   static loadFromDb(): Config {
-    // Will be implemented when database module is ready
     const config = new Config();
-    // Load from database using get_config_value
+    try {
+      const { getConfigValue } = require('./database');
+      
+      // Load each config value from the database
+      try { config.locale = getConfigValue('locale'); } catch (e) {}
+      try { config.lang = getConfigValue('lang'); } catch (e) {}
+      try { config.view = getConfigValue('view'); } catch (e) {}
+      try { config.install_dir = getConfigValue('install_dir'); } catch (e) {}
+      try { config.username = getConfigValue('username'); } catch (e) {}
+      try { config.refresh_token = getConfigValue('refresh_token'); } catch (e) {}
+      try { config.keep_installers = getConfigValue('keep_installers') === 'true'; } catch (e) {}
+      try { config.stay_logged_in = getConfigValue('stay_logged_in') === 'true'; } catch (e) {}
+      try { config.use_dark_theme = getConfigValue('use_dark_theme') === 'true'; } catch (e) {}
+      try { config.show_hidden_games = getConfigValue('show_hidden_games') === 'true'; } catch (e) {}
+      try { config.show_windows_games = getConfigValue('show_windows_games') === 'true'; } catch (e) {}
+      try {
+        const val = getConfigValue('active_account_id');
+        config.active_account_id = val ? val : undefined;
+      } catch (e) {}
+      // Wine settings
+      try { config.wine_prefix = getConfigValue('wine_prefix'); } catch (e) {}
+      try { config.wine_executable = getConfigValue('wine_executable'); } catch (e) {}
+      try { config.wine_debug = getConfigValue('wine_debug') === 'true'; } catch (e) {}
+      try { config.wine_disable_ntsync = getConfigValue('wine_disable_ntsync') === 'true'; } catch (e) {}
+      try { config.wine_auto_install_dxvk = getConfigValue('wine_auto_install_dxvk') !== 'false'; } catch (e) {}
+    } catch (e) {
+      // Database not available, use defaults
+    }
+    
     return config;
   }
 
@@ -156,7 +183,30 @@ export class Config {
   }
 
   saveToDb(): void {
-    // Will be implemented when database module is ready
+    try {
+      const { setConfigValue } = require('./database');
+      
+      setConfigValue('locale', this.locale);
+      setConfigValue('lang', this.lang);
+      setConfigValue('view', this.view);
+      setConfigValue('install_dir', this.install_dir);
+      setConfigValue('username', this.username);
+      setConfigValue('refresh_token', this.refresh_token);
+      setConfigValue('keep_installers', this.keep_installers ? 'true' : 'false');
+      setConfigValue('stay_logged_in', this.stay_logged_in ? 'true' : 'false');
+      setConfigValue('use_dark_theme', this.use_dark_theme ? 'true' : 'false');
+      setConfigValue('show_hidden_games', this.show_hidden_games ? 'true' : 'false');
+      setConfigValue('show_windows_games', this.show_windows_games ? 'true' : 'false');
+      setConfigValue('active_account_id', this.active_account_id || '');
+      // Wine settings
+      setConfigValue('wine_prefix', this.wine_prefix);
+      setConfigValue('wine_executable', this.wine_executable);
+      setConfigValue('wine_debug', this.wine_debug ? 'true' : 'false');
+      setConfigValue('wine_disable_ntsync', this.wine_disable_ntsync ? 'true' : 'false');
+      setConfigValue('wine_auto_install_dxvk', this.wine_auto_install_dxvk ? 'true' : 'false');
+    } catch (e) {
+      // Database not available
+    }
   }
 
   addOngoingDownload(downloadId: number): void {

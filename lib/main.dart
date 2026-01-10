@@ -32,7 +32,7 @@ class _GalaxiAppState extends State<GalaxiApp> {
 
   Future<void> _loadTheme() async {
     try {
-      final dark = await backend.getDarkTheme();
+      final dark = await getDarkTheme();
       setState(() {
         _darkTheme = dark;
         _isLoading = false;
@@ -104,13 +104,13 @@ class _HomePageState extends State<HomePage> {
     setState(() => _isLoading = true);
     try {
       // First check if we have a stored active account with refresh token
-      final activeAccount = await backend.getActiveAccount();
+      final activeAccount = await getActiveAccount();
       if (activeAccount != null && activeAccount.refreshToken.isNotEmpty) {
         // Try to authenticate using stored refresh token
         try {
-          await backend.authenticate(refreshToken: activeAccount.refreshToken);
-          final userData = await backend.getUserData();
-          final accounts = await backend.getAllAccounts();
+          await authenticate(refreshToken: activeAccount.refreshToken);
+          final userData = await getUserData();
+          final accounts = await getAllAccounts();
           
           // Find the active account to get avatar URL
           final currentAccount = accounts.firstWhere(
@@ -132,10 +132,10 @@ class _HomePageState extends State<HomePage> {
         }
       } else {
         // Check if logged in (in case already authenticated this session)
-        final loggedIn = await backend.isLoggedIn();
+        final loggedIn = await isLoggedIn();
         if (loggedIn) {
-          final userData = await backend.getUserData();
-          final accounts = await backend.getAllAccounts();
+          final userData = await getUserData();
+          final accounts = await getAllAccounts();
           
           // Try to get avatar from accounts
           String? avatarUrl;
@@ -182,7 +182,7 @@ class _HomePageState extends State<HomePage> {
         await _showLoginDialog(context, isAddingAccount: true);
       },
       onLogout: () async {
-        await backend.logout();
+        await logout();
         setState(() {
           _isLoggedIn = false;
           _username = '';
@@ -194,7 +194,7 @@ class _HomePageState extends State<HomePage> {
   
   Future<void> _showLoginDialog(BuildContext context, {bool isAddingAccount = false}) async {
     final codeController = TextEditingController();
-    final loginUrl = backend.getLoginUrl();
+    final loginUrl = getLoginUrl();
     
     showDialog(
       context: context,
@@ -278,8 +278,8 @@ class _HomePageState extends State<HomePage> {
                   });
                   
                   try {
-                    final refreshToken = await backend.authenticate(loginCode: code);
-                    await backend.addCurrentAccount(refreshToken: refreshToken);
+                    final refreshToken = await authenticate(loginCode: code);
+                    await addCurrentAccount(refreshToken: refreshToken);
                     if (context.mounted) {
                       Navigator.pop(context, true); // Success
                     }
@@ -367,7 +367,7 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
     
     final codeController = TextEditingController();
-    final loginUrl = backend.getLoginUrl();
+    final loginUrl = getLoginUrl();
     
     if (!mounted) {
       setState(() => _isLoading = false);
@@ -458,8 +458,8 @@ class _LoginPageState extends State<LoginPage> {
                   });
                   
                   try {
-                    final refreshToken = await backend.authenticate(loginCode: code);
-                    await backend.addCurrentAccount(refreshToken: refreshToken);
+                    final refreshToken = await authenticate(loginCode: code);
+                    await addCurrentAccount(refreshToken: refreshToken);
                     if (context.mounted) {
                       Navigator.pop(context, true); // Success
                     }
@@ -543,7 +543,7 @@ class _LibraryPageState extends State<LibraryPage> {
     setState(() => _isLoading = true);
     try {
       // Fetch library from API (this also populates the cache)
-      await backend.getLibrary();
+      await getLibrary();
       // Scan for games that were installed before but not tracked in the database
       await scanForInstalledGames();
       // Get updated games from cache (includes updated install_dir values)
@@ -692,7 +692,7 @@ class _LibraryPageState extends State<LibraryPage> {
           widget.onAddAccount?.call();
         } else if (value.startsWith('switch:')) {
           final userId = value.substring(7);
-          await backend.switchAccount(userId: userId);
+          await switchAccount(userId: userId);
           // Refresh the page
         }
       },
@@ -920,7 +920,7 @@ class _LibraryPageState extends State<LibraryPage> {
 
   Future<void> _refreshSingleGame(int gameId) async {
     try {
-      final games = await backend.getLibrary();
+      final games = await getLibrary();
       final index = _games.indexWhere((g) => g.id == gameId);
       if (index >= 0) {
         final updatedGame = games.firstWhere((g) => g.id == gameId, orElse: () => _games[index]);
@@ -1052,7 +1052,7 @@ class _SettingsPageState extends State<SettingsPage> {
             title: const Text('Dark Theme'),
             value: _darkTheme,
             onChanged: (value) async {
-              await backend.setDarkTheme(enabled: value);
+              await setDarkTheme(enabled: value);
               setState(() => _darkTheme = value);
               widget.onThemeChanged?.call(value);
             },
@@ -1345,7 +1345,7 @@ class _GamePageState extends State<GamePage> {
 
   Future<void> _refreshGame() async {
     try {
-      final games = await backend.getLibrary();
+      final games = await getLibrary();
       final updatedGame = games.firstWhere(
         (g) => g.id == widget.game.id,
         orElse: () => widget.game,

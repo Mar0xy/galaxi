@@ -94,10 +94,148 @@ Future<void> setDarkTheme(bool value) async {
   await backendClient.call<void>('setDarkTheme', [value]);
 }
 
-// Launch API
-Future<LaunchResultDto> launchGameById(int gameId) async {
-  final result = await backendClient.call<Map<String, dynamic>>('launchGameById', [gameId]);
-  return LaunchResultDto.fromJson(result);
+// Additional Configuration API
+Future<String> getInstallDir() async {
+  return await backendClient.call<String>('getInstallDir');
+}
+
+Future<void> setInstallDir(String dir) async {
+  await backendClient.call<void>('setInstallDir', [dir]);
+}
+
+Future<String> getLanguage() async {
+  return await backendClient.call<String>('getLanguage');
+}
+
+Future<void> setLanguage(String lang) async {
+  await backendClient.call<void>('setLanguage', [lang]);
+}
+
+Future<String> getViewMode() async {
+  return await backendClient.call<String>('getViewMode');
+}
+
+Future<void> setViewMode(String view) async {
+  await backendClient.call<void>('setViewMode', [view]);
+}
+
+Future<bool> getShowWindowsGames() async {
+  return await backendClient.call<bool>('getShowWindowsGames');
+}
+
+Future<void> setShowWindowsGames(bool enabled) async {
+  await backendClient.call<void>('setShowWindowsGames', [enabled]);
+}
+
+Future<bool> getShowHiddenGames() async {
+  return await backendClient.call<bool>('getShowHiddenGames');
+}
+
+Future<void> setShowHiddenGames(bool enabled) async {
+  await backendClient.call<void>('setShowHiddenGames', [enabled]);
+}
+
+Future<bool> getKeepInstallers() async {
+  return await backendClient.call<bool>('getKeepInstallers');
+}
+
+Future<void> setKeepInstallers(bool enabled) async {
+  await backendClient.call<void>('setKeepInstallers', [enabled]);
+}
+
+Future<String> getWinePrefix() async {
+  return await backendClient.call<String>('getWinePrefix');
+}
+
+Future<void> setWinePrefix(String prefix) async {
+  await backendClient.call<void>('setWinePrefix', [prefix]);
+}
+
+Future<String> getWineExecutable() async {
+  return await backendClient.call<String>('getWineExecutable');
+}
+
+Future<void> setWineExecutable(String executable) async {
+  await backendClient.call<void>('setWineExecutable', [executable]);
+}
+
+Future<bool> getWineDebug() async {
+  return await backendClient.call<bool>('getWineDebug');
+}
+
+Future<void> setWineDebug(bool enabled) async {
+  await backendClient.call<void>('setWineDebug', [enabled]);
+}
+
+Future<bool> getWineDisableNtsync() async {
+  return await backendClient.call<bool>('getWineDisableNtsync');
+}
+
+Future<void> setWineDisableNtsync(bool enabled) async {
+  await backendClient.call<void>('setWineDisableNtsync', [enabled]);
+}
+
+Future<bool> getWineAutoInstallDxvk() async {
+  return await backendClient.call<bool>('getWineAutoInstallDxvk');
+}
+
+Future<void> setWineAutoInstallDxvk(bool enabled) async {
+  await backendClient.call<void>('setWineAutoInstallDxvk', [enabled]);
+}
+
+// Additional Library API
+Future<List<GameDto>> getCachedGames() async {
+  final result = await backendClient.call<List<dynamic>>('getCachedGames');
+  return result.map((e) => GameDto.fromJson(e as Map<String, dynamic>)).toList();
+}
+
+Future<int> scanForInstalledGames() async {
+  return await backendClient.call<int>('scanForInstalledGames');
+}
+
+// Download API
+Future<String> startDownload(int gameId) async {
+  return await backendClient.call<String>('startDownload', [gameId]);
+}
+
+Future<GameDto> downloadAndInstall(int gameId) async {
+  final result = await backendClient.call<Map<String, dynamic>>('downloadAndInstall', [gameId]);
+  return GameDto.fromJson(result);
+}
+
+Future<void> pauseDownload(int gameId) async {
+  await backendClient.call<void>('pauseDownload', [gameId]);
+}
+
+Future<void> cancelDownload(int gameId) async {
+  await backendClient.call<void>('cancelDownload', [gameId]);
+}
+
+// Installation API
+Future<GameDto> installGame(int gameId, String installerPath) async {
+  final result = await backendClient.call<Map<String, dynamic>>('installGame', [gameId, installerPath]);
+  return GameDto.fromJson(result);
+}
+
+Future<void> uninstallGame(int gameId) async {
+  await backendClient.call<void>('uninstallGame', [gameId]);
+}
+
+Future<void> installDlc(int gameId, String dlcInstallerPath) async {
+  await backendClient.call<void>('installDlc', [gameId, dlcInstallerPath]);
+}
+
+// Wine Tools API
+Future<void> openWineConfig(int gameId) async {
+  await backendClient.call<void>('openWineConfig', [gameId]);
+}
+
+Future<void> openWineRegedit(int gameId) async {
+  await backendClient.call<void>('openWineRegedit', [gameId]);
+}
+
+Future<void> openWinetricks(int gameId) async {
+  await backendClient.call<void>('openWinetricks', [gameId]);
 }
 
 // Additional stubs for functions not yet fully implemented
