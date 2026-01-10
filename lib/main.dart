@@ -545,8 +545,8 @@ class _LibraryPageState extends State<LibraryPage> {
       await getLibrary();
       // Scan for games that were installed before but not tracked in the database
       await scanForInstalledGames();
-      // Reload to get updated install_dir values
-      final updatedGames = await getLibrary();
+      // Get updated games from cache (includes updated install_dir values)
+      final updatedGames = await getCachedGames();
       setState(() => _games = updatedGames);
     } catch (e) {
       if (mounted) {

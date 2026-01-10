@@ -253,6 +253,16 @@ pub async fn get_library() -> Result<Vec<GameDto>> {
     Ok(games.into_iter().map(GameDto::from).collect())
 }
 
+/// Normalize a directory name for comparison (lowercase, only alphanumeric and spaces)
+fn normalize_dir_name(name: &str) -> String {
+    name.chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect::<String>()
+        .to_lowercase()
+        .trim()
+        .to_string()
+}
+
 /// Scan the install directory to detect games that were installed before but
 /// whose install_dir wasn't saved to the database
 pub async fn scan_for_installed_games() -> Result<i32> {
@@ -291,10 +301,16 @@ pub async fn scan_for_installed_games() -> Result<i32> {
                 continue;
             }
             
+            // Normalize the directory name for comparison
+            let normalized_dir = normalize_dir_name(&dir_name);
+            
             // Try to find a matching game in the cache
             for game in cache.values_mut() {
                 let game_dir_name = game.get_install_directory_name();
-                if game_dir_name == dir_name && game.install_dir.is_empty() {
+                let normalized_game_dir = normalize_dir_name(&game_dir_name);
+                
+                // Match by normalized name (or exact match)
+                if (normalized_game_dir == normalized_dir || game_dir_name == dir_name) && game.install_dir.is_empty() {
                     // Found a match - update install_dir
                     game.install_dir = path.to_string_lossy().to_string();
                     let _ = games_db::save_game(game);
@@ -307,6 +323,13 @@ pub async fn scan_for_installed_games() -> Result<i32> {
     
     Ok(updated_count)
 }
+
+/// Get games from the local cache (doesn't call the API)
+pub async fn get_cached_games() -> Result<Vec<GameDto>> {
+    let cache = APP_STATE.games_cache.lock().await;
+    Ok(cache.values().map(GameDto::from).collect())
+}
+
 
 pub async fn get_game_info(game_id: i64) -> Result<GameInfoDto> {
     let api_guard = APP_STATE.api.lock().await;

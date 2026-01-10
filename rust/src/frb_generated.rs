@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -159513427;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1500428649;
 
 // Section: executor
 
@@ -1400,6 +1400,41 @@ fn wire__crate__api__simple__get_all_accounts_impl(
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || async move {
                         let output_ok = crate::api::simple::get_all_accounts().await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__simple__get_cached_games_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_cached_games",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
+                        let output_ok = crate::api::simple::get_cached_games().await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -4064,92 +4099,93 @@ fn pde_ffi_dispatcher_primary_impl(
             wire__crate__api__simple__get_active_downloads_impl(port, ptr, rust_vec_len, data_len)
         }
         32 => wire__crate__api__simple__get_all_accounts_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__simple__get_config_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__simple__get_dark_theme_impl(port, ptr, rust_vec_len, data_len),
-        35 => {
+        33 => wire__crate__api__simple__get_cached_games_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__simple__get_config_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__simple__get_dark_theme_impl(port, ptr, rust_vec_len, data_len),
+        36 => {
             wire__crate__api__simple__get_download_progress_impl(port, ptr, rust_vec_len, data_len)
         }
-        36 => wire__crate__api__simple__get_game_info_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__simple__get_game_version_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__simple__get_gamesdb_info_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__simple__get_install_dir_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__simple__get_keep_installers_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__simple__get_language_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__simple__get_library_impl(port, ptr, rust_vec_len, data_len),
-        45 => {
+        37 => wire__crate__api__simple__get_game_info_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__simple__get_game_version_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__simple__get_gamesdb_info_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__simple__get_install_dir_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__simple__get_keep_installers_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__simple__get_language_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__simple__get_library_impl(port, ptr, rust_vec_len, data_len),
+        46 => {
             wire__crate__api__simple__get_show_windows_games_impl(port, ptr, rust_vec_len, data_len)
         }
-        49 => wire__crate__api__simple__get_user_data_impl(port, ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__simple__get_view_mode_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__simple__get_wine_auto_install_dxvk_impl(
+        50 => wire__crate__api__simple__get_user_data_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__simple__get_view_mode_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__simple__get_wine_auto_install_dxvk_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        53 => wire__crate__api__simple__get_wine_debug_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__simple__get_wine_disable_ntsync_impl(
+        54 => wire__crate__api__simple__get_wine_debug_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__simple__get_wine_disable_ntsync_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        55 => wire__crate__api__simple__get_wine_executable_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__simple__get_wine_prefix_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__simple__init_app_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__simple__install_dlc_impl(port, ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__simple__install_game_impl(port, ptr, rust_vec_len, data_len),
-        61 => wire__crate__api__simple__is_logged_in_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__simple__launch_game_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__simple__launch_game_async_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__simple__login_with_code_impl(port, ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__simple__logout_impl(port, ptr, rust_vec_len, data_len),
-        66 => wire__crate__api__simple__open_wine_config_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__simple__open_wine_config_global_impl(
+        56 => wire__crate__api__simple__get_wine_executable_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__simple__get_wine_prefix_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__simple__init_app_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__simple__install_dlc_impl(port, ptr, rust_vec_len, data_len),
+        61 => wire__crate__api__simple__install_game_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__simple__is_logged_in_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__simple__launch_game_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__simple__launch_game_async_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__simple__login_with_code_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__simple__logout_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__simple__open_wine_config_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__simple__open_wine_config_global_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        68 => wire__crate__api__simple__open_wine_regedit_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__simple__open_winetricks_impl(port, ptr, rust_vec_len, data_len),
-        70 => {
+        69 => wire__crate__api__simple__open_wine_regedit_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__simple__open_winetricks_impl(port, ptr, rust_vec_len, data_len),
+        71 => {
             wire__crate__api__simple__open_winetricks_global_impl(port, ptr, rust_vec_len, data_len)
         }
-        71 => wire__crate__api__simple__pause_download_impl(port, ptr, rust_vec_len, data_len),
-        72 => wire__crate__api__simple__remove_account_impl(port, ptr, rust_vec_len, data_len),
-        73 => wire__crate__api__simple__scan_for_installed_games_impl(
+        72 => wire__crate__api__simple__pause_download_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__simple__remove_account_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__simple__scan_for_installed_games_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        74 => wire__crate__api__simple__set_dark_theme_impl(port, ptr, rust_vec_len, data_len),
-        75 => wire__crate__api__simple__set_install_dir_impl(port, ptr, rust_vec_len, data_len),
-        76 => wire__crate__api__simple__set_keep_installers_impl(port, ptr, rust_vec_len, data_len),
-        77 => wire__crate__api__simple__set_language_impl(port, ptr, rust_vec_len, data_len),
-        78 => {
+        75 => wire__crate__api__simple__set_dark_theme_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__simple__set_install_dir_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__simple__set_keep_installers_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__simple__set_language_impl(port, ptr, rust_vec_len, data_len),
+        79 => {
             wire__crate__api__simple__set_show_windows_games_impl(port, ptr, rust_vec_len, data_len)
         }
-        79 => wire__crate__api__simple__set_view_mode_impl(port, ptr, rust_vec_len, data_len),
-        80 => wire__crate__api__simple__set_wine_auto_install_dxvk_impl(
+        80 => wire__crate__api__simple__set_view_mode_impl(port, ptr, rust_vec_len, data_len),
+        81 => wire__crate__api__simple__set_wine_auto_install_dxvk_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        81 => wire__crate__api__simple__set_wine_debug_impl(port, ptr, rust_vec_len, data_len),
-        82 => wire__crate__api__simple__set_wine_disable_ntsync_impl(
+        82 => wire__crate__api__simple__set_wine_debug_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__simple__set_wine_disable_ntsync_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        83 => wire__crate__api__simple__set_wine_executable_impl(port, ptr, rust_vec_len, data_len),
-        84 => wire__crate__api__simple__set_wine_prefix_impl(port, ptr, rust_vec_len, data_len),
-        85 => wire__crate__api__simple__start_download_impl(port, ptr, rust_vec_len, data_len),
-        86 => wire__crate__api__simple__switch_account_impl(port, ptr, rust_vec_len, data_len),
-        87 => wire__crate__api__simple__uninstall_game_impl(port, ptr, rust_vec_len, data_len),
+        84 => wire__crate__api__simple__set_wine_executable_impl(port, ptr, rust_vec_len, data_len),
+        85 => wire__crate__api__simple__set_wine_prefix_impl(port, ptr, rust_vec_len, data_len),
+        86 => wire__crate__api__simple__start_download_impl(port, ptr, rust_vec_len, data_len),
+        87 => wire__crate__api__simple__switch_account_impl(port, ptr, rust_vec_len, data_len),
+        88 => wire__crate__api__simple__uninstall_game_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -4216,13 +4252,13 @@ fn pde_ffi_dispatcher_sync_impl(
             data_len,
         ),
         19 => wire__crate__api__game__Game_auto_accessor_set_url_impl(ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__simple__get_login_url_impl(ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__simple__get_redirect_url_impl(ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__simple__get_success_url_impl(ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__simple__get_supported_languages_impl(ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__simple__get_supported_locales_impl(ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__simple__get_view_modes_impl(ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__simple__greet_impl(ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__simple__get_login_url_impl(ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__simple__get_redirect_url_impl(ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__simple__get_success_url_impl(ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__simple__get_supported_languages_impl(ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__simple__get_supported_locales_impl(ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__simple__get_view_modes_impl(ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__simple__greet_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
