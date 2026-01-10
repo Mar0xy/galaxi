@@ -281,7 +281,18 @@ export class GogApi {
 
   async getDownloadLink(downlink: string): Promise<string> {
     try {
-      const response = await this.request<RealDownloadLinkResponse>(downlink);
+      // Ensure downlink is a valid URL
+      if (!downlink || downlink.trim() === '') {
+        throw new Error('Invalid URL: downlink is empty');
+      }
+      
+      // If downlink is a relative path, prepend the GOG API base URL
+      let url = downlink;
+      if (!downlink.startsWith('http://') && !downlink.startsWith('https://')) {
+        url = `https://api.gog.com${downlink}`;
+      }
+      
+      const response = await this.request<RealDownloadLinkResponse>(url);
       return response.downlink;
     } catch (error: any) {
       throw new GalaxiError(

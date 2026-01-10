@@ -17,6 +17,9 @@ import {
   DownloadProgressDto,
 } from './dto';
 import { GalaxiError, GalaxiErrorType } from './error';
+import * as fs from 'fs';
+import * as path from 'path';
+import { spawn } from 'child_process';
 
 // Application state
 class AppState {
@@ -249,8 +252,8 @@ export async function getGameInfo(gameId: number): Promise<GameInfoDto> {
   return {
     id: info.id,
     title: info.title,
-    description: info.description?.full,
-    changelog: info.changelog,
+    description: info.description?.full || info.description?.lead || '',
+    changelog: info.changelog || '',
     screenshots,
   };
 }
@@ -260,15 +263,27 @@ export async function getGamesDbInfo(gameId: number): Promise<GamesDbInfoDto> {
     throw new GalaxiError('Not authenticated', GalaxiErrorType.AuthError);
   }
   
-  const info = await APP_STATE.api.getGamesDbInfo(gameId);
-  
-  return {
-    cover: info.cover,
-    vertical_cover: info.vertical_cover,
-    background: info.background,
-    summary: info.summary['*'] || '',
-    genre: info.genre['*'] || '',
-  };
+  try {
+    const info = await APP_STATE.api.getGamesDbInfo(gameId);
+    
+    return {
+      cover: info.cover || '',
+      vertical_cover: info.vertical_cover || '',
+      background: info.background || '',
+      summary: (info.summary && info.summary['*']) || '',
+      genre: (info.genre && info.genre['*']) || '',
+    };
+  } catch (error: any) {
+    // Return empty values if GamesDB info is not available
+    console.error('Failed to get GamesDB info:', error);
+    return {
+      cover: '',
+      vertical_cover: '',
+      background: '',
+      summary: '',
+      genre: '',
+    };
+  }
 }
 
 // ============================================================================
@@ -501,8 +516,8 @@ export async function scanForInstalledGames(): Promise<number> {
   }
   
   let updatedCount = 0;
-  const fs = require('fs');
-  const path = require('path');
+  
+  
   
   try {
     const entries = fs.readdirSync(installBase);
@@ -604,8 +619,8 @@ export async function startDownload(gameId: number): Promise<string> {
     throw new GalaxiError('No download files available', GalaxiErrorType.NoDownloadLinkFound);
   }
   
-  const fs = require('fs');
-  const path = require('path');
+  
+  
   
   // Create downloads directory
   const downloadsDir = path.join(APP_STATE.config.install_dir, '.downloads');
@@ -660,8 +675,8 @@ export async function downloadAndInstall(gameId: number): Promise<GameDto> {
   
   // Clean up installer if not keeping them
   if (!APP_STATE.config.keep_installers) {
-    const fs = require('fs');
-    const path = require('path');
+    
+    
     const downloadsDir = path.join(APP_STATE.config.install_dir, '.downloads');
     try {
       fs.rmSync(downloadsDir, { recursive: true, force: true });
@@ -712,7 +727,7 @@ export async function uninstallGame(gameId: number): Promise<void> {
     throw new GalaxiError('Game not found', GalaxiErrorType.NotFoundError);
   }
   
-  const fs = require('fs');
+  
   
   if (game.install_dir && fs.existsSync(game.install_dir)) {
     try {
@@ -776,13 +791,13 @@ export async function openWineConfig(gameId: number): Promise<void> {
   const winePrefix = APP_STATE.config.wine_prefix || `${game.install_dir}/wine_prefix`;
   const wineExec = APP_STATE.config.wine_executable || 'wine';
   
-  const child_process = require('child_process');
+  
   const env: any = {
     ...process.env,
     WINEPREFIX: winePrefix,
   };
   
-  child_process.spawn(wineExec, ['winecfg'], {
+  spawn(wineExec, ['winecfg'], {
     env,
     detached: true,
     stdio: 'ignore',
@@ -798,13 +813,13 @@ export async function openWineRegedit(gameId: number): Promise<void> {
   const winePrefix = APP_STATE.config.wine_prefix || `${game.install_dir}/wine_prefix`;
   const wineExec = APP_STATE.config.wine_executable || 'wine';
   
-  const child_process = require('child_process');
+  
   const env: any = {
     ...process.env,
     WINEPREFIX: winePrefix,
   };
   
-  child_process.spawn(wineExec, ['regedit'], {
+  spawn(wineExec, ['regedit'], {
     env,
     detached: true,
     stdio: 'ignore',
@@ -819,13 +834,13 @@ export async function openWinetricks(gameId: number): Promise<void> {
   
   const winePrefix = APP_STATE.config.wine_prefix || `${game.install_dir}/wine_prefix`;
   
-  const child_process = require('child_process');
+  
   const env: any = {
     ...process.env,
     WINEPREFIX: winePrefix,
   };
   
-  child_process.spawn('winetricks', [], {
+  spawn('winetricks', [], {
     env,
     detached: true,
     stdio: 'ignore',
