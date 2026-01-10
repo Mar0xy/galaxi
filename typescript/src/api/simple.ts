@@ -607,9 +607,6 @@ export async function startDownload(gameId: number): Promise<string> {
     throw new GalaxiError('No download files available', GalaxiErrorType.NoDownloadLinkFound);
   }
   
-  
-  
-  
   // Create downloads directory
   const downloadsDir = path.join(APP_STATE.config.install_dir, '.downloads');
   if (!fs.existsSync(downloadsDir)) {
@@ -618,7 +615,19 @@ export async function startDownload(gameId: number): Promise<string> {
   
   // Download the first file
   const file = installer.files[0];
+  console.log('Installer file downlink:', file.downlink);
+  
+  if (!file.downlink) {
+    throw new GalaxiError('Download link is missing from installer file', GalaxiErrorType.NoDownloadLinkFound);
+  }
+  
   const realLink = await APP_STATE.api.getDownloadLink(file.downlink);
+  console.log('Real download link:', realLink);
+  
+  if (!realLink || !realLink.startsWith('http')) {
+    throw new GalaxiError(`Invalid download URL received: ${realLink}`, GalaxiErrorType.DownloadError);
+  }
+  
   const fileName = extractFilenameFromUrl(realLink);
   const savePath = path.join(downloadsDir, fileName);
   

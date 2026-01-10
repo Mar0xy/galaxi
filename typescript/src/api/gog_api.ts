@@ -332,9 +332,12 @@ export class GogApi {
         url = `https://api.gog.com${downlink}`;
       }
       
+      console.log('Fetching download link from:', url);
       const response = await this.request<RealDownloadLinkResponse>(url);
+      console.log('Got download link:', response.downlink);
       return response.downlink;
     } catch (error: any) {
+      console.error('Failed to get download link for:', downlink, 'Error:', error.message);
       throw new GalaxiError(
         `Failed to get download link: ${error.message}`,
         GalaxiErrorType.DownloadError
