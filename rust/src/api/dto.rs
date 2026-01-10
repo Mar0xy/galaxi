@@ -75,6 +75,7 @@ pub struct GameInfoDto {
     pub title: String,
     pub description: Option<String>,
     pub changelog: Option<String>,
+    pub screenshots: Vec<String>,
 }
 
 /// Games DB info (covers, backgrounds, etc)
@@ -221,11 +222,21 @@ impl From<&DownloadProgress> for DownloadProgressDto {
 
 impl From<&GameInfoResponse> for GameInfoDto {
     fn from(info: &GameInfoResponse) -> Self {
+        // Convert screenshots to URLs
+        let screenshots: Vec<String> = info.screenshots.as_ref()
+            .map(|ss| ss.iter().map(|s| {
+                // GOG screenshots use formatter_template_url like "https://images.gog-statics.com/{image_id}_{formatter}.jpg"
+                // Common formatters: 1600 (large), 800 (medium), 200 (thumbnail)
+                s.formatter_template_url.replace("{formatter}", "product_card_v2_mobile_slider_639")
+            }).collect())
+            .unwrap_or_default();
+        
         GameInfoDto {
             id: info.id,
             title: info.title.clone(),
             description: info.description.as_ref().and_then(|d| d.full.clone()),
             changelog: info.changelog.clone(),
+            screenshots,
         }
     }
 }

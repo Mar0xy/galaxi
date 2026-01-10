@@ -773,7 +773,7 @@ class _LibraryPageState extends State<LibraryPage> {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => _showGameDetails(game),
+        onTap: () => _openGamePage(game),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -781,10 +781,12 @@ class _LibraryPageState extends State<LibraryPage> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  // Background color for letterboxing
+                  Container(color: Colors.grey[850] ?? Colors.grey[800]),
                   if (game.imageUrl.isNotEmpty)
                     Image.network(
                       'https:${game.imageUrl}_196.jpg',
-                      fit: BoxFit.cover,
+                      fit: BoxFit.contain, // Contain to avoid stretching
                       errorBuilder: (_, __, ___) => Container(
                         color: Colors.grey[300],
                         child: const Icon(Icons.games, size: 48),
@@ -875,138 +877,41 @@ class _LibraryPageState extends State<LibraryPage> {
               ),
             IconButton(
               icon: const Icon(Icons.more_vert),
-              onPressed: () => _showGameDetails(game),
+              onPressed: () => _openGamePage(game),
             ),
           ],
         ),
-        onTap: () => _showGameDetails(game),
+        onTap: () => _openGamePage(game),
       ),
     );
   }
 
-  void _showGameDetails(GameDto game) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) => SingleChildScrollView(
-          controller: scrollController,
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  game.name,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 16),
-                if (game.imageUrl.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      'https:${game.imageUrl}_392.jpg',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        height: 200,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.games, size: 64),
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Chip(label: Text(game.platform)),
-                    const SizedBox(width: 8),
-                    Chip(label: Text(game.category)),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                if (game.installDir.isNotEmpty) ...[
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      try {
-                        await launchGameAsync(gameId: game.id);
-                        if (mounted) Navigator.pop(context);
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to launch: $e')),
-                          );
-                        }
-                      }
-                    },
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Play'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Uninstall Game'),
-                          content: Text('Are you sure you want to uninstall ${game.name}?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text('Uninstall'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirm == true) {
-                        try {
-                          await uninstallGame(gameId: game.id);
-                          if (mounted) {
-                            Navigator.pop(context);
-                            _loadLibrary();
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Failed to uninstall: $e')),
-                            );
-                          }
-                        }
-                      }
-                    },
-                    icon: const Icon(Icons.delete),
-                    label: const Text('Uninstall'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                    ),
-                  ),
-                ] else ...[
-                  _InstallButton(
-                    gameId: game.id,
-                    gameName: game.name,
-                    onInstallComplete: () {
-                      if (mounted) {
-                        Navigator.pop(context);
-                        _loadLibrary();
-                      }
-                    },
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
+  void _openGamePage(GameDto game) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GamePage(game: game),
       ),
     );
+    // If installation happened, refresh just that game in the list
+    if (result == true) {
+      _refreshSingleGame(game.id);
+    }
+  }
+
+  Future<void> _refreshSingleGame(int gameId) async {
+    try {
+      final games = await getLibrary();
+      final index = _games.indexWhere((g) => g.id == gameId);
+      if (index >= 0) {
+        final updatedGame = games.firstWhere((g) => g.id == gameId, orElse: () => _games[index]);
+        setState(() {
+          _games[index] = updatedGame;
+        });
+      }
+    } catch (e) {
+      // Ignore errors, just refresh later
+    }
   }
 
   void _openSettings() {
@@ -1354,6 +1259,405 @@ class _SettingsPageState extends State<SettingsPage> {
       await setWineExecutable(executable: result);
       setState(() => _wineExecutable = result);
     }
+  }
+}
+
+/// Game detail page with background, description, and screenshots
+class GamePage extends StatefulWidget {
+  final GameDto game;
+
+  const GamePage({super.key, required this.game});
+
+  @override
+  State<GamePage> createState() => _GamePageState();
+}
+
+class _GamePageState extends State<GamePage> {
+  bool _isLoading = true;
+  GameDto _game = GameDto(
+    id: 0,
+    name: '',
+    url: '',
+    installDir: '',
+    imageUrl: '',
+    platform: '',
+    category: '',
+    dlcs: [],
+  );
+  String? _backgroundUrl;
+  String? _description;
+  String? _summary;
+  bool _installationCompleted = false;
+  List<String> _screenshots = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _game = widget.game;
+    _loadGameDetails();
+  }
+
+  Future<void> _loadGameDetails() async {
+    setState(() => _isLoading = true);
+    try {
+      // Try to get extended game info
+      final gameInfo = await getGameInfo(gameId: widget.game.id);
+      final gamesDbInfo = await getGamesdbInfo(gameId: widget.game.id);
+      
+      setState(() {
+        if (gameInfo.description != null && gameInfo.description!.isNotEmpty) {
+          _description = gameInfo.description;
+        }
+        if (gamesDbInfo.background.isNotEmpty) {
+          _backgroundUrl = gamesDbInfo.background;
+        }
+        if (gamesDbInfo.summary.isNotEmpty) {
+          _summary = gamesDbInfo.summary;
+        }
+        if (gameInfo.screenshots.isNotEmpty) {
+          _screenshots = gameInfo.screenshots;
+        }
+      });
+    } catch (e) {
+      // Use default image as background if API fails
+    }
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _refreshGame() async {
+    try {
+      final games = await getLibrary();
+      final updatedGame = games.firstWhere(
+        (g) => g.id == widget.game.id,
+        orElse: () => widget.game,
+      );
+      setState(() {
+        _game = updatedGame;
+        _installationCompleted = true;
+      });
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  void _showFullScreenshot(BuildContext context, int initialIndex) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            leading: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+            title: Text(
+              'Screenshot ${initialIndex + 1} of ${_screenshots.length}',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+          body: PageView.builder(
+            controller: PageController(initialPage: initialIndex),
+            itemCount: _screenshots.length,
+            itemBuilder: (context, index) {
+              return InteractiveViewer(
+                child: Center(
+                  child: Image.network(
+                    _screenshots[index],
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.broken_image,
+                      size: 64,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isInstalled = _game.installDir.isNotEmpty;
+    final backgroundImage = _backgroundUrl ?? 
+        (widget.game.imageUrl.isNotEmpty 
+            ? 'https:${widget.game.imageUrl}_glx_logo.jpg' 
+            : null);
+
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          // App bar with background image
+          SliverAppBar(
+            expandedHeight: 300,
+            pinned: true,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context, _installationCompleted),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              title: Text(
+                widget.game.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  shadows: [Shadow(color: Colors.black, blurRadius: 8)],
+                ),
+              ),
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (backgroundImage != null)
+                    Image.network(
+                      backgroundImage,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    )
+                  else
+                    Container(color: Theme.of(context).colorScheme.primary),
+                  // Gradient overlay for readability
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Content
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Platform and category chips
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      Chip(
+                        label: Text(widget.game.platform),
+                        avatar: Icon(
+                          widget.game.platform.toLowerCase() == 'linux'
+                              ? Icons.computer
+                              : Icons.window,
+                          size: 16,
+                        ),
+                      ),
+                      Chip(label: Text(widget.game.category)),
+                      if (isInstalled)
+                        const Chip(
+                          label: Text('Installed'),
+                          backgroundColor: Colors.green,
+                          labelStyle: TextStyle(color: Colors.white),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Action buttons
+                  if (isInstalled) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              try {
+                                await launchGameAsync(gameId: widget.game.id);
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Failed to launch: $e')),
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text('Play'),
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(0, 56),
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Uninstall Game'),
+                                content: Text('Are you sure you want to uninstall ${widget.game.name}?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text('Uninstall'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              try {
+                                await uninstallGame(gameId: widget.game.id);
+                                if (mounted) {
+                                  _refreshGame();
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Failed to uninstall: $e')),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.delete),
+                          label: const Text('Uninstall'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 56),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    _InstallButton(
+                      gameId: widget.game.id,
+                      gameName: widget.game.name,
+                      onInstallComplete: () {
+                        _refreshGame();
+                      },
+                    ),
+                  ],
+                  
+                  const SizedBox(height: 32),
+                  
+                  // Description section
+                  if (_isLoading)
+                    const Center(child: CircularProgressIndicator())
+                  else ...[
+                    if (_summary != null && _summary!.isNotEmpty) ...[
+                      Text(
+                        'About',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _summary!,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                    if (_description != null && _description!.isNotEmpty) ...[
+                      Text(
+                        'Description',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        // Strip HTML tags from description
+                        _description!
+                            .replaceAll(RegExp(r'<[^>]*>'), '')
+                            .replaceAll('&nbsp;', ' ')
+                            .replaceAll('&amp;', '&'),
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                    
+                    // Screenshots section
+                    if (_screenshots.isNotEmpty) ...[
+                      const SizedBox(height: 32),
+                      Text(
+                        'Screenshots',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 200,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _screenshots.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                right: index < _screenshots.length - 1 ? 16 : 0,
+                              ),
+                              child: GestureDetector(
+                                onTap: () => _showFullScreenshot(context, index),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    _screenshots[index],
+                                    height: 200,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 320,
+                                      height: 200,
+                                      color: Colors.grey[300],
+                                      child: const Icon(Icons.broken_image, size: 48),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    
+                    // DLCs section
+                    if (widget.game.dlcs.isNotEmpty) ...[
+                      const SizedBox(height: 32),
+                      Text(
+                        'DLCs (${widget.game.dlcs.length})',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 16),
+                      ...widget.game.dlcs.map((dlc) => Card(
+                        child: ListTile(
+                          leading: dlc.imageUrl.isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Image.network(
+                                    'https:${dlc.imageUrl}_100.jpg',
+                                    width: 48,
+                                    height: 48,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.extension),
+                                  ),
+                                )
+                              : const Icon(Icons.extension),
+                          title: Text(dlc.name),
+                          subtitle: Text(dlc.title),
+                        ),
+                      )),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

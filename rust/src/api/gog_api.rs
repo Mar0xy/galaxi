@@ -100,6 +100,14 @@ pub struct GameInfoResponse {
     pub downloads: Option<GameDownloads>,
     pub expanded_dlcs: Option<Vec<ExpandedDlc>>,
     pub changelog: Option<String>,
+    pub screenshots: Option<Vec<Screenshot>>,
+}
+
+#[flutter_rust_bridge::frb(non_opaque)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Screenshot {
+    pub image_id: String,
+    pub formatter_template_url: String,
 }
 
 #[flutter_rust_bridge::frb(non_opaque)]

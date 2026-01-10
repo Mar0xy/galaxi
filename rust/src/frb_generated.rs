@@ -3656,11 +3656,13 @@ impl SseDecode for crate::api::dto::GameInfoDto {
         let mut var_title = <String>::sse_decode(deserializer);
         let mut var_description = <Option<String>>::sse_decode(deserializer);
         let mut var_changelog = <Option<String>>::sse_decode(deserializer);
+        let mut var_screenshots = <Vec<String>>::sse_decode(deserializer);
         return crate::api::dto::GameInfoDto {
             id: var_id,
             title: var_title,
             description: var_description,
             changelog: var_changelog,
+            screenshots: var_screenshots,
         };
     }
 }
@@ -3708,6 +3710,18 @@ impl SseDecode for crate::api::dto::LaunchResultDto {
             error_message: var_errorMessage,
             pid: var_pid,
         };
+    }
+}
+
+impl SseDecode for Vec<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<String>::sse_decode(deserializer));
+        }
+        return ans_;
     }
 }
 
@@ -4461,6 +4475,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::dto::GameInfoDto {
             self.title.into_into_dart().into_dart(),
             self.description.into_into_dart().into_dart(),
             self.changelog.into_into_dart().into_dart(),
+            self.screenshots.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4778,6 +4793,7 @@ impl SseEncode for crate::api::dto::GameInfoDto {
         <String>::sse_encode(self.title, serializer);
         <Option<String>>::sse_encode(self.description, serializer);
         <Option<String>>::sse_encode(self.changelog, serializer);
+        <Vec<String>>::sse_encode(self.screenshots, serializer);
     }
 }
 
@@ -4812,6 +4828,16 @@ impl SseEncode for crate::api::dto::LaunchResultDto {
         <bool>::sse_encode(self.success, serializer);
         <Option<String>>::sse_encode(self.error_message, serializer);
         <Option<u32>>::sse_encode(self.pid, serializer);
+    }
+}
+
+impl SseEncode for Vec<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <String>::sse_encode(item, serializer);
+        }
     }
 }
 
