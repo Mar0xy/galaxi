@@ -263,27 +263,15 @@ export async function getGamesDbInfo(gameId: number): Promise<GamesDbInfoDto> {
     throw new GalaxiError('Not authenticated', GalaxiErrorType.AuthError);
   }
   
-  try {
-    const info = await APP_STATE.api.getGamesDbInfo(gameId);
-    
-    return {
-      cover: info.cover || '',
-      vertical_cover: info.vertical_cover || '',
-      background: info.background || '',
-      summary: (info.summary && info.summary['*']) || '',
-      genre: (info.genre && info.genre['*']) || '',
-    };
-  } catch (error: any) {
-    // Return empty values if GamesDB info is not available
-    console.error('Failed to get GamesDB info:', error);
-    return {
-      cover: '',
-      vertical_cover: '',
-      background: '',
-      summary: '',
-      genre: '',
-    };
-  }
+  const info = await APP_STATE.api.getGamesDbInfo(gameId);
+  
+  return {
+    cover: info.cover || '',
+    vertical_cover: info.vertical_cover || '',
+    background: info.background || '',
+    summary: (info.summary && info.summary['*']) || '',
+    genre: (info.genre && info.genre['*']) || '',
+  };
 }
 
 // ============================================================================

@@ -276,7 +276,47 @@ export class GogApi {
 
   async getGamesDbInfo(gameId: number): Promise<GamesDbInfo> {
     const url = `https://gamesdb.gog.com/platforms/gog/external_releases/${gameId}`;
-    return await this.request<GamesDbInfo>(url);
+    const response = await this.request<any>(url);
+    
+    const info: GamesDbInfo = {
+      cover: '',
+      vertical_cover: '',
+      background: '',
+      summary: {},
+      genre: {},
+    };
+    
+    // Parse nested game data structure
+    if (response.game) {
+      const gameData = response.game;
+      
+      // Extract cover URL
+      if (gameData.cover && gameData.cover.url_format) {
+        info.cover = gameData.cover.url_format.replace('{formatter}.{ext}', '.png');
+      }
+      
+      // Extract vertical cover URL
+      if (gameData.vertical_cover && gameData.vertical_cover.url_format) {
+        info.vertical_cover = gameData.vertical_cover.url_format.replace('{formatter}.{ext}', '.png');
+      }
+      
+      // Extract background URL
+      if (gameData.background && gameData.background.url_format) {
+        info.background = gameData.background.url_format.replace('{formatter}.{ext}', '.png');
+      }
+      
+      // Extract summary (localized strings)
+      if (gameData.summary && typeof gameData.summary === 'object') {
+        info.summary = gameData.summary;
+      }
+      
+      // Extract genre (localized strings)
+      if (gameData.genre && typeof gameData.genre === 'object') {
+        info.genre = gameData.genre;
+      }
+    }
+    
+    return info;
   }
 
   async getDownloadLink(downlink: string): Promise<string> {
