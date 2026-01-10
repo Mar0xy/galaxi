@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'client.dart';
 import 'dto.dart';
 
@@ -211,6 +210,11 @@ Future<void> cancelDownload(int gameId) async {
   await backendClient.call<void>('cancelDownload', [gameId]);
 }
 
+Future<DownloadProgressDto?> getDownloadProgress({required int gameId}) async {
+  final result = await backendClient.call<Map<String, dynamic>?>('getDownloadProgress', [gameId]);
+  return result != null ? DownloadProgressDto.fromJson(result) : null;
+}
+
 // Installation API
 Future<GameDto> installGame(int gameId, String installerPath) async {
   final result = await backendClient.call<Map<String, dynamic>>('installGame', [gameId, installerPath]);
@@ -238,87 +242,43 @@ Future<void> openWinetricks(int gameId) async {
   await backendClient.call<void>('openWinetricks', [gameId]);
 }
 
-// Additional stubs for functions not yet fully implemented
-Future<String> getViewMode() async {
-  return 'grid'; // Default to grid view
+// Additional API functions
+Future<GameInfoDto> getGameInfo({required int gameId}) async {
+  final result = await backendClient.call<Map<String, dynamic>>('getGameInfo', [gameId]);
+  return GameInfoDto.fromJson(result);
 }
 
-Future<bool> getShowWindowsGames() async {
-  return true; // Default to showing Windows games
+Future<GamesDbInfoDto> getGamesdbInfo({required int gameId}) async {
+  final result = await backendClient.call<Map<String, dynamic>>('getGamesDbInfo', [gameId]);
+  return GamesDbInfoDto.fromJson(result);
 }
 
-Future<List<GameDto>> getCachedGames() async {
-  return await getLibrary(); // For now, just return library
+Future<LaunchResultDto> launchGameAsync({required int gameId}) async {
+  return await launchGameById(gameId);
 }
 
-Future<void> scanForInstalledGames() async {
-  // TODO: Implement scanning
+List<Map<String, String>> getSupportedLanguages() {
+  return [
+    {'code': 'en', 'name': 'English'},
+    {'code': 'es', 'name': 'Spanish'},
+    {'code': 'fr', 'name': 'French'},
+    {'code': 'de', 'name': 'German'},
+    {'code': 'it', 'name': 'Italian'},
+    {'code': 'pt', 'name': 'Portuguese'},
+    {'code': 'ru', 'name': 'Russian'},
+    {'code': 'pl', 'name': 'Polish'},
+    {'code': 'zh', 'name': 'Chinese'},
+  ];
 }
 
-Future<void> setViewMode({required String view}) async {
-  // TODO: Implement
+Future<void> openWineConfigGlobal() async {
+  // Open winecfg without a specific game
+  // For now, just throw an error to indicate it's not implemented yet
+  throw UnimplementedError('Global Wine config not yet implemented');
 }
 
-Future<String> getInstallDir() async {
-  final config = await getConfig();
-  return config.installDir;
+Future<void> openWinetricksGlobal() async {
+  // Open winetricks without a specific game
+  throw UnimplementedError('Global Winetricks not yet implemented');
 }
 
-Future<String> getLanguage() async {
-  final config = await getConfig();
-  return config.lang;
-}
-
-Future<bool> getKeepInstallers() async {
-  final config = await getConfig();
-  return config.keepInstallers;
-}
-
-Future<String> getWinePrefix() async {
-  final config = await getConfig();
-  return config.winePrefix;
-}
-
-Future<String> getWineExecutable() async {
-  final config = await getConfig();
-  return config.wineExecutable;
-}
-
-Future<bool> getWineDebug() async {
-  final config = await getConfig();
-  return config.wineDebug;
-}
-
-Future<bool> getWineDisableNtsync() async {
-  final config = await getConfig();
-  return config.wineDisableNtsync;
-}
-
-Future<bool> getWineAutoInstallDxvk() async {
-  final config = await getConfig();
-  return config.wineAutoInstallDxvk;
-}
-
-Future<void> setLanguage({required String lang}) async {
-  await setConfigValue('lang', lang);
-}
-
-Future<void> setShowWindowsGames({required bool enabled}) async {
-  await setConfigValue('show_windows_games', enabled.toString());
-}
-
-Future<void> setKeepInstallers({required bool enabled}) async {
-  await setConfigValue('keep_installers', enabled.toString());
-}
-
-Future<void> setWineDebug({required bool enabled}) async {
-  await setConfigValue('wine_debug', enabled.toString());
-}
-
-Future<void> setWineDisableNtsync({required bool enabled}) async {
-  await setConfigValue('wine_disable_ntsync', enabled.toString());
-}
-
-Future<void> setWineAutoInstallDxvk({required bool enabled}) async {
-  await setConfigValue('wine_auto_install_dxvk', enabled.toString());
-}

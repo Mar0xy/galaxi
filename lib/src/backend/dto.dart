@@ -176,3 +176,87 @@ class LaunchResultDto {
     );
   }
 }
+
+class GameInfoDto {
+  final int id;
+  final String title;
+  final String? description;
+  final String? changelog;
+  final List<String> screenshots;
+
+  GameInfoDto({
+    required this.id,
+    required this.title,
+    this.description,
+    this.changelog,
+    required this.screenshots,
+  });
+
+  factory GameInfoDto.fromJson(Map<String, dynamic> json) {
+    return GameInfoDto(
+      id: json['id'] as int,
+      title: json['title'] as String,
+      description: json['description'] as String?,
+      changelog: json['changelog'] as String?,
+      screenshots: (json['screenshots'] as List?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+    );
+  }
+}
+
+class GamesDbInfoDto {
+  final String cover;
+  final String verticalCover;
+  final String background;
+  final String summary;
+  final String genre;
+
+  GamesDbInfoDto({
+    required this.cover,
+    required this.verticalCover,
+    required this.background,
+    required this.summary,
+    required this.genre,
+  });
+
+  factory GamesDbInfoDto.fromJson(Map<String, dynamic> json) {
+    return GamesDbInfoDto(
+      cover: json['cover'] as String,
+      verticalCover: json['vertical_cover'] as String,
+      background: json['background'] as String,
+      summary: json['summary'] as String,
+      genre: json['genre'] as String,
+    );
+  }
+}
+
+class DownloadProgressDto {
+  final int gameId;
+  final String gameName;
+  final int downloadedBytes;
+  final int totalBytes;
+  final int speedBytesPerSec;
+  final String status;
+
+  DownloadProgressDto({
+    required this.gameId,
+    required this.gameName,
+    required this.downloadedBytes,
+    required this.totalBytes,
+    required this.speedBytesPerSec,
+    required this.status,
+  });
+
+  factory DownloadProgressDto.fromJson(Map<String, dynamic> json) {
+    return DownloadProgressDto(
+      gameId: json['game_id'] as int,
+      gameName: json['game_name'] as String,
+      downloadedBytes: json['downloaded_bytes'] as int,
+      totalBytes: json['total_bytes'] as int,
+      speedBytesPerSec: json['speed_bytes_per_sec'] as int,
+      status: json['status'] as String,
+    );
+  }
+}

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:galaxi/src/backend/api.dart' as backend;
+import 'package:galaxi/src/backend/api.dart';
 import 'package:galaxi/src/backend/dto.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
