@@ -53,12 +53,41 @@ pub fn get_wine_path_with_fallback(game: &Game, global_wine_executable: Option<&
 
 #[flutter_rust_bridge::frb(ignore)]
 pub fn determine_launcher_type(game: &Game) -> LauncherType {
+    determine_launcher_type_with_wine(game, None)
+}
+
+#[flutter_rust_bridge::frb(ignore)]
+pub fn determine_launcher_type_with_wine(game: &Game, _global_wine_executable: Option<&str>) -> LauncherType {
     if !game.is_installed() {
         return LauncherType::Unknown;
     }
 
     let install_dir = PathBuf::from(&game.install_dir);
+    let wine_prefix = install_dir.join("wine_prefix");
+    let wine_drive_c = wine_prefix.join("drive_c");
+    let wine_game_dir = wine_drive_c.join("game");
     
+    // Check for start.sh first (native Linux launcher)
+    if install_dir.join("start.sh").exists() {
+        return LauncherType::StartScript;
+    }
+    
+    // Check for Wine prefix with drive_c/game (Windows game installed via Wine)
+    if wine_game_dir.exists() {
+        return LauncherType::Wine;
+    }
+    
+    // Check for Wine prefix with just drive_c (some games may install differently)
+    if wine_drive_c.exists() {
+        return LauncherType::Wine;
+    }
+    
+    // Check for wine_prefix directory (might be empty but indicates Wine game)
+    if wine_prefix.exists() {
+        return LauncherType::Wine;
+    }
+    
+    // Check for unins000.exe in root (legacy or direct Windows install)
     if install_dir.join("unins000.exe").exists() {
         return LauncherType::Windows;
     }
@@ -75,18 +104,31 @@ pub fn determine_launcher_type(game: &Game) -> LauncherType {
         }
     }
     
-    if install_dir.join("start.sh").exists() {
-        return LauncherType::StartScript;
-    }
-    
-    if install_dir.join("wine_prefix").exists() {
-        if which::which("wine").is_ok() {
-            return LauncherType::Wine;
-        }
-    }
-    
     if install_dir.join("game").exists() {
         return LauncherType::FinalResort;
+    }
+    
+    // Last resort: check if there are any .exe files in common locations
+    // This handles cases where the game is installed but detection missed it
+    let possible_dirs = [
+        wine_game_dir.clone(),
+        wine_drive_c.join("Program Files"),
+        wine_drive_c.join("Program Files (x86)"),
+        wine_drive_c.clone(),
+        install_dir.clone(),
+    ];
+    
+    for dir in &possible_dirs {
+        if dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if name.to_uppercase().ends_with(".EXE") {
+                        return LauncherType::Wine;
+                    }
+                }
+            }
+        }
     }
     
     LauncherType::Unknown
@@ -94,7 +136,12 @@ pub fn determine_launcher_type(game: &Game) -> LauncherType {
 
 #[flutter_rust_bridge::frb(ignore)]
 pub fn get_execute_command(game: &Game) -> Result<Vec<String>> {
-    let launcher_type = determine_launcher_type(game);
+    get_execute_command_with_wine(game, None)
+}
+
+#[flutter_rust_bridge::frb(ignore)]
+pub fn get_execute_command_with_wine(game: &Game, global_wine_executable: Option<&str>) -> Result<Vec<String>> {
+    let launcher_type = determine_launcher_type_with_wine(game, global_wine_executable);
     let install_dir = PathBuf::from(&game.install_dir);
     
     let mut exe_cmd = match launcher_type {
@@ -265,9 +312,10 @@ fn get_windows_exe_cmd(game: &Game) -> Result<Vec<String>> {
     let install_dir = PathBuf::from(&game.install_dir);
     let prefix = install_dir.join("wine_prefix");
     let wine = get_wine_path(game);
+    let drive_c = prefix.join("drive_c");
     
     // For Windows games installed via Wine, the game files are in wine_prefix/drive_c/game/
-    let game_dir = prefix.join("drive_c").join("game");
+    let game_dir = drive_c.join("game");
     
     // First check for goggame info file in the game directory
     let goggame_file = game_dir.join(format!("goggame-{}.info", game.id));
@@ -286,8 +334,54 @@ fn get_windows_exe_cmd(game: &Game) -> Result<Vec<String>> {
         return Ok(cmd);
     }
     
+    // Check Program Files directories (some installers use these)
+    let program_files = drive_c.join("Program Files");
+    if program_files.exists() {
+        if let Ok(entries) = std::fs::read_dir(&program_files) {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    if let Some(cmd) = find_executable_in_dir(&entry.path(), &prefix, &wine) {
+                        return Ok(cmd);
+                    }
+                }
+            }
+        }
+    }
+    
+    let program_files_x86 = drive_c.join("Program Files (x86)");
+    if program_files_x86.exists() {
+        if let Ok(entries) = std::fs::read_dir(&program_files_x86) {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    if let Some(cmd) = find_executable_in_dir(&entry.path(), &prefix, &wine) {
+                        return Ok(cmd);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Check GOG Games folder inside drive_c (some GOG installers use this)
+    let gog_games = drive_c.join("GOG Games");
+    if gog_games.exists() {
+        if let Ok(entries) = std::fs::read_dir(&gog_games) {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    if let Some(cmd) = find_executable_in_dir(&entry.path(), &prefix, &wine) {
+                        return Ok(cmd);
+                    }
+                }
+            }
+        }
+    }
+    
     // Fallback: check in install_dir directly
     if let Some(cmd) = find_executable_in_dir(&install_dir, &prefix, &wine) {
+        return Ok(cmd);
+    }
+    
+    // Check drive_c root as last resort
+    if let Some(cmd) = find_executable_in_dir(&drive_c, &prefix, &wine) {
         return Ok(cmd);
     }
     
@@ -408,7 +502,8 @@ pub fn start_game_with_options(game: &Game, wine_options: WineLaunchOptions) -> 
     
     set_fps_display(game);
     
-    let exe_cmd = get_execute_command(game)?;
+    let wine_exe_ref = wine_options.wine_executable.as_deref();
+    let exe_cmd = get_execute_command_with_wine(game, wine_exe_ref)?;
     
     if exe_cmd.is_empty() {
         return Ok(LaunchResult {
