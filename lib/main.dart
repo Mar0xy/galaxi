@@ -786,7 +786,7 @@ class _LibraryPageState extends State<LibraryPage> {
                   if (game.imageUrl.isNotEmpty)
                     Image.network(
                       'https:${game.imageUrl}_196.jpg',
-                      fit: BoxFit.contain, // Contain to avoid stretching
+                      fit: BoxFit.cover, // Cover to fill without empty space
                       errorBuilder: (_, __, ___) => Container(
                         color: Colors.grey[300],
                         child: const Icon(Icons.games, size: 48),
@@ -1573,11 +1573,19 @@ class _GamePageState extends State<GamePage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        // Strip HTML tags from description
+                        // Strip HTML tags and clean up whitespace
                         _description!
+                            .replaceAll(RegExp(r'<br\s*/?>'), '\n')
+                            .replaceAll(RegExp(r'<p[^>]*>'), '\n')
+                            .replaceAll(RegExp(r'</p>'), '\n')
                             .replaceAll(RegExp(r'<[^>]*>'), '')
                             .replaceAll('&nbsp;', ' ')
-                            .replaceAll('&amp;', '&'),
+                            .replaceAll('&amp;', '&')
+                            .replaceAll('&lt;', '<')
+                            .replaceAll('&gt;', '>')
+                            .replaceAll('&quot;', '"')
+                            .replaceAll(RegExp(r'\n\s*\n\s*\n+'), '\n\n') // Remove excess newlines
+                            .trim(),
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],

@@ -227,11 +227,24 @@ pub async fn get_library() -> Result<Vec<GameDto>> {
     let api = api_guard.as_ref()
         .ok_or_else(|| MinigalaxyError::AuthError("Not authenticated".to_string()))?;
     
-    let games = api.get_library().await?;
+    let mut games = api.get_library().await?;
+    
+    // Load existing games from database to preserve install_dir
+    let existing_games: HashMap<i64, Game> = games_db::get_all_games()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|g| (g.id, g))
+        .collect();
     
     // Cache the games for later lookups (in memory and database)
     let mut cache = APP_STATE.games_cache.lock().await;
-    for game in &games {
+    for game in &mut games {
+        // Preserve install_dir from existing database record
+        if let Some(existing) = existing_games.get(&game.id) {
+            if !existing.install_dir.is_empty() {
+                game.install_dir = existing.install_dir.clone();
+            }
+        }
         cache.insert(game.id, game.clone());
         // Also save to database for persistence
         let _ = games_db::save_game(game);
