@@ -190,12 +190,15 @@ export async function getLibrary(): Promise<GameDto[]> {
   const existingGames = gamesDb().getAllGames();
   const existingMap = new Map(existingGames.map(g => [g.id, g]));
   
+  console.log(`getLibrary: Fetched ${games.length} games from GOG API, ${existingGames.length} games in database`);
+  
   // Update cache and database
   for (const game of games) {
     // Preserve install_dir from existing database record
     const existing = existingMap.get(game.id);
     if (existing && existing.install_dir) {
       game.install_dir = existing.install_dir;
+      console.log(`getLibrary: Preserved install_dir for game ${game.id} (${game.name}): ${game.install_dir}`);
     }
     
     APP_STATE.gamesCache.set(game.id, game);
@@ -309,7 +312,9 @@ export async function installGame(gameId: number, installerUrl: string): Promise
   }
   
   // Update cache and database BEFORE cleanup to ensure game shows as installed
+  game.install_dir = installDir; // Make sure install_dir is set
   APP_STATE.gamesCache.set(gameId, game);
+  
   const gameDto: GameDto = {
     id: game.id,
     name: game.name,
@@ -328,7 +333,7 @@ export async function installGame(gameId: number, installerUrl: string): Promise
   
   try {
     gamesDb().saveGame(gameDto);
-    console.log(`Game "${game.name}" saved to database with install_dir: ${game.install_dir}`);
+    console.log(`Game "${game.name}" (ID: ${game.id}) saved to database with install_dir: ${game.install_dir}`);
   } catch (error) {
     console.error('Failed to save game to database:', error);
     // Continue even if database save fails
