@@ -86,8 +86,16 @@ export class Game {
    * that are not allowed in folder names (like : * ? " < > |)
    */
   getInstallDirectoryName(): string {
+    return Game.sanitizeFolderName(this.name);
+  }
+
+  /**
+   * Static method to sanitize a game name for use as a folder name.
+   * Removes special characters that are not allowed in folder names (: * ? " < > |)
+   */
+  static sanitizeFolderName(gameName: string): string {
     // Keep only alphanumeric characters and whitespace, then trim
-    return this.name
+    return gameName
       .split('')
       .filter(c => /[a-zA-Z0-9\s]/.test(c))
       .join('')

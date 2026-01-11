@@ -285,7 +285,9 @@ export async function installGame(gameId: number, installerUrl: string): Promise
   }
   
   // Use sanitized directory name to avoid special characters in folder names
-  const installDir = `${APP_STATE.config.install_dir}/${game.getInstallDirectoryName()}`;
+  const sanitizedName = Game.sanitizeFolderName(game.name);
+  const installDir = `${APP_STATE.config.install_dir}/${sanitizedName}`;
+  console.log(`Installing game "${game.name}" to sanitized directory: ${installDir}`);
   game.install_dir = installDir;
   
   const wineOptions = {
@@ -538,7 +540,7 @@ export async function scanForInstalledGames(): Promise<number> {
       
       // Try to find a matching game in the cache
       for (const game of APP_STATE.gamesCache.values()) {
-        const gameDir = game.getInstallDirectoryName();
+        const gameDir = Game.sanitizeFolderName(game.name);
         const normalizedGameDir = normalizeDirName(gameDir);
         
         // Match by normalized name
