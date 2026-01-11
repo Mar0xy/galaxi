@@ -613,39 +613,58 @@ export async function startDownload(gameId: number): Promise<string> {
     fs.mkdirSync(downloadsDir, { recursive: true });
   }
   
-  // Download the first file
-  const file = installer.files[0];
-  console.log('Installer file downlink:', file.downlink);
+  // Pre-compute all download paths and real links
+  const downloadTasks: Array<{ realLink: string; savePath: string; needsDownload: boolean }> = [];
   
-  if (!file.downlink) {
-    throw new GalaxiError('Download link is missing from installer file', GalaxiErrorType.NoDownloadLinkFound);
+  for (const file of installer.files) {
+    console.log('Installer file downlink:', file.downlink);
+    
+    if (!file.downlink) {
+      throw new GalaxiError('Download link is missing from installer file', GalaxiErrorType.NoDownloadLinkFound);
+    }
+    
+    const realLink = await APP_STATE.api.getDownloadLink(file.downlink);
+    console.log('Real download link:', realLink);
+    
+    if (!realLink || !realLink.startsWith('http')) {
+      throw new GalaxiError(`Invalid download URL received: ${realLink}`, GalaxiErrorType.DownloadError);
+    }
+    
+    const fileName = extractFilenameFromUrl(realLink);
+    const savePath = path.join(downloadsDir, fileName);
+    
+    // Check if already downloaded
+    const needsDownload = !fs.existsSync(savePath);
+    downloadTasks.push({ realLink, savePath, needsDownload });
   }
   
-  const realLink = await APP_STATE.api.getDownloadLink(file.downlink);
-  console.log('Real download link:', realLink);
+  // Return the first installer path for installation
+  const firstInstallerPath = downloadTasks[0].savePath;
   
-  if (!realLink || !realLink.startsWith('http')) {
-    throw new GalaxiError(`Invalid download URL received: ${realLink}`, GalaxiErrorType.DownloadError);
+  // Check if all files are already downloaded
+  const allDownloaded = downloadTasks.every(task => !task.needsDownload);
+  if (allDownloaded) {
+    return firstInstallerPath;
   }
   
-  const fileName = extractFilenameFromUrl(realLink);
-  const savePath = path.join(downloadsDir, fileName);
-  
-  // Check if already downloaded
-  if (fs.existsSync(savePath)) {
-    return savePath;
-  }
-  
-  // Start download in background
+  // Start all downloads in background
   setTimeout(async () => {
     try {
-      await APP_STATE.downloadManager.downloadFile(game, realLink, savePath);
+      for (const task of downloadTasks) {
+        if (!task.needsDownload) {
+          console.log('Skipping already downloaded file:', task.savePath);
+          continue;
+        }
+        
+        console.log('Starting download:', task.realLink, '->', task.savePath);
+        await APP_STATE.downloadManager.downloadFile(game, task.realLink, task.savePath);
+      }
     } catch (error) {
       console.error('Download failed:', error);
     }
   }, 0);
   
-  return savePath;
+  return firstInstallerPath;
 }
 
 export async function downloadAndInstall(gameId: number): Promise<GameDto> {

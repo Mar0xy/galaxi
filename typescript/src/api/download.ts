@@ -47,6 +47,7 @@ export class DownloadManager {
       if (fs.existsSync(destination)) {
         startByte = fs.statSync(destination).size;
         progress.downloaded = startByte;
+        this.downloads.set(game.id, { ...progress });
       }
 
       const response = await axios({
@@ -57,11 +58,14 @@ export class DownloadManager {
       });
 
       progress.total = parseInt(response.headers['content-length'] || '0') + startByte;
+      this.downloads.set(game.id, { ...progress });
 
       const writer = fs.createWriteStream(destination, { flags: startByte > 0 ? 'a' : 'w' });
 
       response.data.on('data', (chunk: Buffer) => {
         progress.downloaded += chunk.length;
+        // Update the shared downloads Map so getProgress can read it
+        this.downloads.set(game.id, { ...progress });
         if (onProgress) {
           onProgress(progress);
         }
@@ -74,11 +78,13 @@ export class DownloadManager {
       });
 
       progress.status = DownloadStatus.Completed;
+      this.downloads.set(game.id, { ...progress });
       if (onProgress) {
         onProgress(progress);
       }
     } catch (error: any) {
       progress.status = DownloadStatus.Failed;
+      this.downloads.set(game.id, { ...progress });
       if (onProgress) {
         onProgress(progress);
       }
