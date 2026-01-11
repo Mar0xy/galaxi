@@ -1,11 +1,11 @@
-import Database from 'better-sqlite3';
+import { Database } from 'bun:sqlite';
 import * as path from 'path';
 import * as fs from 'fs';
 import { getDataDir } from './config';
 import { GalaxiError, GalaxiErrorType } from './error';
 import { AccountDto, GameDto } from './dto';
 
-let db: Database.Database | null = null;
+let db: Database | null = null;
 
 export function getDbPath(): string {
   return path.join(getDataDir(), 'galaxi.db');
@@ -109,7 +109,7 @@ export function initDatabase(): void {
   }
 }
 
-function getDb(): Database.Database {
+function getDb(): Database {
   if (!db) {
     throw new GalaxiError('Database not initialized', GalaxiErrorType.ConfigError);
   }

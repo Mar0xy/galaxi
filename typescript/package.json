@@ -18,11 +18,10 @@
   "license": "GPL-3.0",
   "dependencies": {
     "axios": "^1.6.0",
-    "better-sqlite3": "^9.2.0",
     "md5": "^2.3.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.8",
-    "@types/md5": "^2.3.5"
+    "@types/md5": "^2.3.5",
+    "@types/bun": "latest"
   }
 }
