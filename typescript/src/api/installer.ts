@@ -151,28 +151,43 @@ export class GameInstaller {
     await new Promise<void>((resolve) => {
       const wineExec = wineExecutable || 'wine';
       const wineboot = wineExec.replace('wine', 'wineboot');
+      let resolved = false;
       
       const proc = child_process.spawn(wineboot, ['--init'], { 
         env,
         stdio: ['ignore', 'ignore', 'ignore'] // Ignore all stdio to prevent console flooding
       });
 
-      proc.on('close', () => {
-        console.log('Wine prefix initialized');
-        resolve();
+      proc.on('close', (code) => {
+        if (!resolved) {
+          resolved = true;
+          console.log('Wine prefix initialized');
+          resolve();
+        }
       });
 
       proc.on('error', () => {
-        // Try with 'wine wineboot' if wineboot is not found
-        const fallbackProc = child_process.spawn(wineExec, ['wineboot', '--init'], { 
-          env,
-          stdio: ['ignore', 'ignore', 'ignore']
-        });
-        fallbackProc.on('close', () => {
-          console.log('Wine prefix initialized (fallback)');
-          resolve();
-        });
-        fallbackProc.on('error', () => resolve());
+        if (!resolved) {
+          // Try with 'wine wineboot' if wineboot is not found
+          console.log('Trying fallback: wine wineboot --init');
+          const fallbackProc = child_process.spawn(wineExec, ['wineboot', '--init'], { 
+            env,
+            stdio: ['ignore', 'ignore', 'ignore']
+          });
+          fallbackProc.on('close', () => {
+            if (!resolved) {
+              resolved = true;
+              console.log('Wine prefix initialized (fallback)');
+              resolve();
+            }
+          });
+          fallbackProc.on('error', () => {
+            if (!resolved) {
+              resolved = true;
+              resolve();
+            }
+          });
+        }
       });
     });
 
