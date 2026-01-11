@@ -1366,8 +1366,16 @@ class _GamePageState extends State<GamePage> {
         
         if (!running) {
           timer.cancel();
-          // Reload total from database after game closes
-          _checkGameRunning();
+          // Wait a moment for backend to save playtime to database, then reload
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) {
+            final updatedTotal = await getTotalGamePlaytime(widget.game.id);
+            setState(() {
+              _totalPlaytimeFromDb = updatedTotal;
+              _playtime = updatedTotal;
+              _isGameRunning = false;
+            });
+          }
         }
       } catch (e) {
         timer.cancel();
