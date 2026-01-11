@@ -37,10 +37,12 @@ lib/src/rust/**
 rust/target/
 rust/Cargo.lock
 
-# TypeScript/Node.js artifacts
+# TypeScript/Bun artifacts
 typescript/node_modules/
 typescript/dist/
 typescript/package-lock.json
+typescript/galaxi-backend
+typescript/galaxi-backend-*
 node_modules/
 dist/
 *.js.map
