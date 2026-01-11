@@ -5,7 +5,7 @@ import { GameInstaller } from './installer';
 import { Game } from './game';
 import { Account, fetchUserAvatar } from './account';
 import { launchGame } from './launcher';
-import { initDatabase, accountsDb, gamesDb } from './database';
+import { initDatabase, accountsDb, gamesDb, playtimeDb } from './database';
 import {
   AccountDto,
   UserDataDto,
@@ -21,7 +21,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 
-//  Game session tracking
+//  Game session tracking - only one game can run at a time
 interface GameSession {
   gameId: number;
   pid: number;
@@ -35,7 +35,7 @@ class AppState {
   downloadManager: DownloadManager;
   installer: GameInstaller;
   gamesCache: Map<number, Game> = new Map();
-  gameSessions: Map<number, GameSession> = new Map(); // gameId -> session
+  currentGameSession: GameSession | null = null; // Only one game at a time
 
   constructor() {
     // Initialize database first
@@ -49,18 +49,6 @@ class AppState {
     this.config = Config.load();
     this.downloadManager = new DownloadManager();
     this.installer = new GameInstaller(this.downloadManager);
-    
-    // Periodically clean up finished game sessions
-    setInterval(() => this.cleanupFinishedSessions(), 5000);
-  }
-  
-  private cleanupFinishedSessions() {
-    for (const [gameId, session] of this.gameSessions.entries()) {
-      if (!isProcessRunning(session.pid)) {
-        console.log(`Game ${gameId} (PID ${session.pid}) has stopped`);
-        this.gameSessions.delete(gameId);
-      }
-    }
   }
 }
 
@@ -400,6 +388,21 @@ export async function launchGameById(gameId: number): Promise<LaunchResultDto> {
     throw new GalaxiError('Game is not installed', GalaxiErrorType.LaunchError);
   }
   
+  // Check if another game is currently running
+  if (APP_STATE.currentGameSession) {
+    const currentSession = APP_STATE.currentGameSession;
+    if (isProcessRunning(currentSession.pid)) {
+      throw new GalaxiError(
+        `Another game (ID: ${currentSession.gameId}) is already running. Please close it first.`,
+        GalaxiErrorType.LaunchError
+      );
+    } else {
+      // Current game stopped, save playtime
+      saveGamePlaytime(currentSession.gameId, currentSession.startTime);
+      APP_STATE.currentGameSession = null;
+    }
+  }
+  
   const wineOptions = {
     wine_prefix: APP_STATE.config.wine_prefix || `${game.install_dir}/wine_prefix`,
     wine_executable: APP_STATE.config.wine_executable,
@@ -414,11 +417,11 @@ export async function launchGameById(gameId: number): Promise<LaunchResultDto> {
   // Track game session if launch was successful
   if (result.success && result.pid) {
     console.log(`Tracking game session for ${game.name} (PID: ${result.pid})`);
-    APP_STATE.gameSessions.set(gameId, {
+    APP_STATE.currentGameSession = {
       gameId: gameId,
       pid: result.pid,
       startTime: Date.now(),
-    });
+    };
   }
   
   return result;
@@ -974,53 +977,103 @@ function isProcessRunning(pid: number): boolean {
 }
 
 /**
+ * Save game playtime to database
+ */
+function saveGamePlaytime(gameId: number, startTime: number): void {
+  try {
+    const sessionDurationSeconds = Math.floor((Date.now() - startTime) / 1000);
+    playtimeDb().savePlaytime(gameId, sessionDurationSeconds);
+    console.log(`Saved playtime for game ${gameId}: +${sessionDurationSeconds}s`);
+  } catch (error) {
+    console.error(`Failed to save playtime for game ${gameId}:`, error);
+  }
+}
+
+/**
+ * Get total playtime for a game from database (in seconds)
+ */
+function getTotalPlaytime(gameId: number): number {
+  try {
+    return playtimeDb().getTotalPlaytime(gameId);
+  } catch (error) {
+    console.error(`Failed to get playtime for game ${gameId}:`, error);
+    return 0;
+  }
+}
+
+/**
  * Check if a game is currently running
  */
 export function isGameRunning(gameId: number): boolean {
-  const session = APP_STATE.gameSessions.get(gameId);
-  if (!session) {
+  if (!APP_STATE.currentGameSession) {
     return false;
   }
   
-  const running = isProcessRunning(session.pid);
+  if (APP_STATE.currentGameSession.gameId !== gameId) {
+    return false;
+  }
+  
+  const running = isProcessRunning(APP_STATE.currentGameSession.pid);
   if (!running) {
-    // Clean up if process is no longer running
-    APP_STATE.gameSessions.delete(gameId);
+    // Save playtime and clean up session
+    saveGamePlaytime(APP_STATE.currentGameSession.gameId, APP_STATE.currentGameSession.startTime);
+    APP_STATE.currentGameSession = null;
   }
   return running;
 }
 
 /**
- * Get the playtime for a currently running game (in seconds)
+ * Get the current session playtime for a running game (in seconds)
+ * Returns 0 if game is not running
  */
 export function getGamePlaytime(gameId: number): number {
-  const session = APP_STATE.gameSessions.get(gameId);
-  if (!session || !isProcessRunning(session.pid)) {
+  if (!APP_STATE.currentGameSession || APP_STATE.currentGameSession.gameId !== gameId) {
+    return 0;
+  }
+  
+  if (!isProcessRunning(APP_STATE.currentGameSession.pid)) {
+    // Save playtime and clean up
+    saveGamePlaytime(APP_STATE.currentGameSession.gameId, APP_STATE.currentGameSession.startTime);
+    APP_STATE.currentGameSession = null;
     return 0;
   }
   
   const now = Date.now();
-  const playtimeMs = now - session.startTime;
-  return Math.floor(playtimeMs / 1000);
+  const currentSessionSeconds = Math.floor((now - APP_STATE.currentGameSession.startTime) / 1000);
+  return currentSessionSeconds;
 }
 
 /**
- * Get all currently running games with their playtime
+ * Get total playtime for a game from database (in seconds)
  */
-export function getRunningGames(): Array<{gameId: number; playtime: number}> {
-  const running: Array<{gameId: number; playtime: number}> = [];
-  
-  for (const [gameId, session] of APP_STATE.gameSessions.entries()) {
-    if (isProcessRunning(session.pid)) {
-      const playtime = Math.floor((Date.now() - session.startTime) / 1000);
-      running.push({ gameId, playtime });
-    } else {
-      // Clean up finished session
-      APP_STATE.gameSessions.delete(gameId);
-    }
+export function getTotalGamePlaytime(gameId: number): number {
+  return getTotalPlaytime(gameId);
+}
+
+/**
+ * Get the currently running game info with current session playtime
+ * Returns null if no game is running
+ */
+export function getRunningGame(): {gameId: number; currentSessionPlaytime: number; totalPlaytime: number} | null {
+  if (!APP_STATE.currentGameSession) {
+    return null;
   }
   
-  return running;
+  if (!isProcessRunning(APP_STATE.currentGameSession.pid)) {
+    // Save playtime and clean up
+    saveGamePlaytime(APP_STATE.currentGameSession.gameId, APP_STATE.currentGameSession.startTime);
+    APP_STATE.currentGameSession = null;
+    return null;
+  }
+  
+  const currentSessionPlaytime = Math.floor((Date.now() - APP_STATE.currentGameSession.startTime) / 1000);
+  const totalPlaytime = getTotalPlaytime(APP_STATE.currentGameSession.gameId);
+  
+  return {
+    gameId: APP_STATE.currentGameSession.gameId,
+    currentSessionPlaytime,
+    totalPlaytime,
+  };
 }
 
 // Export types

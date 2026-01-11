@@ -271,10 +271,12 @@ Future<int> getGamePlaytime(int gameId) async {
   return await backendClient.call<int>('getGamePlaytime', [gameId]);
 }
 
-Future<List<Map<String, dynamic>>> getRunningGames() async {
-  return await backendClient.call<List<dynamic>>('getRunningGames').then(
-    (result) => result.cast<Map<String, dynamic>>()
-  );
+Future<int> getTotalGamePlaytime(int gameId) async {
+  return await backendClient.call<int>('getTotalGamePlaytime', [gameId]);
+}
+
+Future<Map<String, dynamic>?> getRunningGame() async {
+  return await backendClient.call<Map<String, dynamic>?>('getRunningGame');
 }
 
 List<Map<String, String>> getSupportedLanguages() {

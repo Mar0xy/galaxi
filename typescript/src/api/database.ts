@@ -73,6 +73,14 @@ export function initDatabase(): void {
       installed INTEGER DEFAULT 0,
       FOREIGN KEY (game_id) REFERENCES games(id)
     );
+    
+    -- Game playtime tracking table
+    CREATE TABLE IF NOT EXISTS game_playtime (
+      game_id INTEGER PRIMARY KEY,
+      total_playtime_seconds INTEGER DEFAULT 0,
+      last_played TEXT,
+      FOREIGN KEY (game_id) REFERENCES games(id)
+    );
   `);
   
   // Insert default config values if not exists
@@ -309,6 +317,42 @@ export function gamesDb() {
       const db = getDb();
       db.prepare('DELETE FROM games').run();
       db.prepare('DELETE FROM dlcs').run();
+    },
+  };
+}
+
+// Playtime tracking
+export function playtimeDb() {
+  return {
+    savePlaytime(gameId: number, sessionDurationSeconds: number): void {
+      const db = getDb();
+      const now = new Date().toISOString();
+      
+      // Get current playtime
+      const currentRow = db.prepare(
+        'SELECT total_playtime_seconds FROM game_playtime WHERE game_id = ?'
+      ).get(gameId) as { total_playtime_seconds: number } | undefined;
+      
+      const currentTotal = currentRow?.total_playtime_seconds || 0;
+      const newTotal = currentTotal + sessionDurationSeconds;
+      
+      // Insert or update
+      db.prepare(`
+        INSERT INTO game_playtime (game_id, total_playtime_seconds, last_played)
+        VALUES (?, ?, ?)
+        ON CONFLICT(game_id) DO UPDATE SET
+          total_playtime_seconds = ?,
+          last_played = ?
+      `).run(gameId, newTotal, now, newTotal, now);
+    },
+    
+    getTotalPlaytime(gameId: number): number {
+      const db = getDb();
+      const row = db.prepare(
+        'SELECT total_playtime_seconds FROM game_playtime WHERE game_id = ?'
+      ).get(gameId) as { total_playtime_seconds: number } | undefined;
+      
+      return row?.total_playtime_seconds || 0;
     },
   };
 }
