@@ -2,15 +2,14 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:galaxi/src/rust/api/simple.dart';
-import 'package:galaxi/src/rust/api/dto.dart';
-import 'package:galaxi/src/rust/frb_generated.dart';
+import 'package:galaxi/src/backend/api.dart';
+import 'package:galaxi/src/backend/dto.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await RustLib.init();
+  // Note: Backend server must be started separately
   runApp(const GalaxiApp());
 }
 
@@ -1037,8 +1036,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 builder: (context) => SimpleDialog(
                   title: const Text('Select Language'),
                   children: languages.map((lang) => SimpleDialogOption(
-                    onPressed: () => Navigator.pop(context, lang.$1),
-                    child: Text(lang.$2),
+                    onPressed: () => Navigator.pop(context, lang['code']),
+                    child: Text(lang['name']!),
                   )).toList(),
                 ),
               );
@@ -1309,12 +1308,93 @@ class _GamePageState extends State<GamePage> {
   String? _summary;
   bool _installationCompleted = false;
   List<String> _screenshots = [];
+  bool _isGameRunning = false;
+  int _playtime = 0;
+  int _totalPlaytimeFromDb = 0;
+  Timer? _playtimeTimer;
 
   @override
   void initState() {
     super.initState();
     _game = widget.game;
     _loadGameDetails();
+    _checkGameRunning();
+  }
+  
+  @override
+  void dispose() {
+    _playtimeTimer?.cancel();
+    super.dispose();
+  }
+  
+  Future<void> _checkGameRunning() async {
+    try {
+      // Always load total playtime from database first
+      final totalPlaytime = await getTotalGamePlaytime(widget.game.id);
+      final running = await isGameRunning(widget.game.id);
+      
+      if (mounted) {
+        setState(() {
+          _totalPlaytimeFromDb = totalPlaytime;
+          _playtime = totalPlaytime;
+          _isGameRunning = running;
+        });
+      }
+      
+      if (running) {
+        _startPlaytimeTracking();
+      }
+    } catch (e) {
+      // Ignore error
+    }
+  }
+  
+  void _startPlaytimeTracking() {
+    _playtimeTimer?.cancel();
+    _playtimeTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      try {
+        final running = await isGameRunning(widget.game.id);
+        final currentSessionPlaytime = await getGamePlaytime(widget.game.id);
+        
+        if (mounted) {
+          setState(() {
+            _isGameRunning = running;
+            // Show total time = database total + current session
+            _playtime = _totalPlaytimeFromDb + currentSessionPlaytime;
+          });
+        }
+        
+        if (!running) {
+          timer.cancel();
+          // Wait a moment for backend to save playtime to database, then reload
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) {
+            final updatedTotal = await getTotalGamePlaytime(widget.game.id);
+            setState(() {
+              _totalPlaytimeFromDb = updatedTotal;
+              _playtime = updatedTotal;
+              _isGameRunning = false;
+            });
+          }
+        }
+      } catch (e) {
+        timer.cancel();
+      }
+    });
+  }
+  
+  String _formatPlaytime(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final secs = seconds % 60;
+    
+    if (hours > 0) {
+      return '${hours}h ${minutes}m ${secs}s';
+    } else if (minutes > 0) {
+      return '${minutes}m ${secs}s';
+    } else {
+      return '${secs}s';
+    }
   }
 
   Future<void> _loadGameDetails() async {
@@ -1458,6 +1538,42 @@ class _GamePageState extends State<GamePage> {
                       ),
                     ),
                   ),
+                  // Playtime counter overlay (top right)
+                  if (_playtime > 0)
+                    Positioned(
+                      top: 16,
+                      right: 16,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.orange,
+                            width: 2,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.timer,
+                              color: Colors.orange,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _formatPlaytime(_playtime),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1499,9 +1615,11 @@ class _GamePageState extends State<GamePage> {
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () async {
+                            onPressed: _isGameRunning ? null : () async {
                               try {
                                 await launchGameAsync(gameId: widget.game.id);
+                                // Start tracking playtime after launch
+                                _checkGameRunning();
                               } catch (e) {
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1510,56 +1628,58 @@ class _GamePageState extends State<GamePage> {
                                 }
                               }
                             },
-                            icon: const Icon(Icons.play_arrow),
-                            label: const Text('Play'),
+                            icon: Icon(_isGameRunning ? Icons.videogame_asset : Icons.play_arrow),
+                            label: Text(_isGameRunning ? 'Playing' : 'Play'),
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size(0, 56),
-                              backgroundColor: Colors.green,
+                              backgroundColor: _isGameRunning ? Colors.orange : Colors.green,
                               foregroundColor: Colors.white,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        OutlinedButton.icon(
-                          onPressed: () async {
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Uninstall Game'),
-                                content: Text('Are you sure you want to uninstall ${widget.game.name}?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: const Text('Uninstall'),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (confirm == true) {
-                              try {
-                                await uninstallGame(gameId: widget.game.id);
-                                if (mounted) {
-                                  _refreshGame();
-                                }
-                              } catch (e) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Failed to uninstall: $e')),
-                                  );
+                        if (!_isGameRunning) ...[
+                          const SizedBox(width: 16),
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Uninstall Game'),
+                                  content: Text('Are you sure you want to uninstall ${widget.game.name}?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      child: const Text('Uninstall'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true) {
+                                try {
+                                  await uninstallGame(gameId: widget.game.id);
+                                  if (mounted) {
+                                    _refreshGame();
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Failed to uninstall: $e')),
+                                    );
+                                  }
                                 }
                               }
-                            }
-                          },
-                          icon: const Icon(Icons.delete),
-                          label: const Text('Uninstall'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 56),
+                            },
+                            icon: const Icon(Icons.delete),
+                            label: const Text('Uninstall'),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 56),
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ] else ...[

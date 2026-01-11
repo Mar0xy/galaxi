@@ -22,7 +22,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.5'
+          flutter-version: '3.27.1'
           channel: 'stable'
       
       - name: Configure Flutter
@@ -32,14 +32,21 @@ jobs:
           flutter --disable-analytics
           dart --disable-analytics
       
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
       
-      - name: Install flutter_rust_bridge_codegen
-        run: cargo install flutter_rust_bridge_codegen
+      - name: Install backend dependencies
+        run: |
+          cd typescript
+          bun install
       
-      - name: Generate Rust bindings
-        run: flutter_rust_bridge_codegen generate
+      - name: Build backend executable
+        run: |
+          cd typescript
+          bun run build
+          chmod +x galaxi-backend
       
       - name: Get Flutter dependencies
         run: flutter pub get
@@ -50,6 +57,10 @@ jobs:
       - name: Package Linux app
         run: |
           cd build/linux/x64/release/bundle
+          # Include standalone backend executable in renamed folder
+          mkdir -p backend
+          cp ../../../../../typescript/galaxi-backend backend/
+          cp ../../../../../start-galaxi.sh .
           tar -czvf ../../../../../galaxi-linux-x64.tar.gz *
       
       - name: Upload Linux artifact
