@@ -301,23 +301,14 @@ export async function installGame(gameId: number, installerUrl: string): Promise
     auto_install_dxvk: APP_STATE.config.wine_auto_install_dxvk,
   };
   
-  await APP_STATE.installer.installGame(game, installerUrl, installDir, wineOptions);
-  
-  // Clean up installer files if not keeping them
-  if (!APP_STATE.config.keep_installers) {
-    const downloadsDir = path.join(APP_STATE.config.install_dir, '.downloads');
-    try {
-      if (fs.existsSync(downloadsDir)) {
-        console.log('Cleaning up downloaded installer files...');
-        fs.rmSync(downloadsDir, { recursive: true, force: true });
-      }
-    } catch (error) {
-      console.warn('Failed to clean up installer files:', error);
-      // Don't fail installation if cleanup fails
-    }
+  try {
+    await APP_STATE.installer.installGame(game, installerUrl, installDir, wineOptions);
+  } catch (error) {
+    console.error('Installation failed:', error);
+    throw error;
   }
   
-  // Update cache and database
+  // Update cache and database BEFORE cleanup to ensure game shows as installed
   APP_STATE.gamesCache.set(gameId, game);
   const gameDto: GameDto = {
     id: game.id,
@@ -334,7 +325,32 @@ export async function installGame(gameId: number, installerUrl: string): Promise
       image_url: d.image_url,
     })),
   };
-  gamesDb().saveGame(gameDto);
+  
+  try {
+    gamesDb().saveGame(gameDto);
+    console.log(`Game "${game.name}" saved to database with install_dir: ${game.install_dir}`);
+  } catch (error) {
+    console.error('Failed to save game to database:', error);
+    // Continue even if database save fails
+  }
+  
+  // Clean up installer files if not keeping them (do this asynchronously in background)
+  if (!APP_STATE.config.keep_installers) {
+    const downloadsDir = path.join(APP_STATE.config.install_dir, '.downloads');
+    // Run cleanup in background, don't wait for it and don't let it crash the app
+    setImmediate(async () => {
+      try {
+        if (fs.existsSync(downloadsDir)) {
+          console.log('Cleaning up downloaded installer files...');
+          await fs.promises.rm(downloadsDir, { recursive: true, force: true });
+          console.log('Installer files cleaned up successfully');
+        }
+      } catch (error) {
+        console.warn('Failed to clean up installer files:', error);
+        // Silently ignore cleanup failures
+      }
+    });
+  }
   
   return gameDto;
 }
@@ -519,71 +535,81 @@ function normalizeDirName(name: string): string {
 export async function scanForInstalledGames(): Promise<number> {
   const installBase = APP_STATE.config.install_dir;
   
-  if (!require('fs').existsSync(installBase)) {
+  if (!fs.existsSync(installBase)) {
     return 0;
   }
   
   let updatedCount = 0;
   
-  
-  
   try {
-    const entries = fs.readdirSync(installBase);
+    const entries = await fs.promises.readdir(installBase);
     
-    for (const entry of entries) {
-      const fullPath = path.join(installBase, entry);
-      const stats = fs.statSync(fullPath);
-      
-      if (!stats.isDirectory()) {
-        continue;
-      }
-      
-      // Skip .downloads folder
-      if (entry.startsWith('.')) {
-        continue;
-      }
-      
-      // Check if this directory has wine_prefix/drive_c (Windows game) or a start script (Linux game)
-      const winePrefix = path.join(fullPath, 'wine_prefix', 'drive_c');
-      const startScript = path.join(fullPath, 'start.sh');
-      const isInstalled = fs.existsSync(winePrefix) || fs.existsSync(startScript);
-      
-      if (!isInstalled) {
-        continue;
-      }
-      
-      // Normalize the directory name for comparison
-      const normalizedDir = normalizeDirName(entry);
-      
-      // Try to find a matching game in the cache
-      for (const game of APP_STATE.gamesCache.values()) {
-        const gameDir = Game.sanitizeFolderName(game.name);
-        const normalizedGameDir = normalizeDirName(gameDir);
+    // Process entries in parallel for better performance
+    await Promise.all(entries.map(async (entry) => {
+      try {
+        const fullPath = path.join(installBase, entry);
+        const stats = await fs.promises.stat(fullPath);
         
-        // Match by normalized name
-        if (normalizedGameDir === normalizedDir && !game.install_dir) {
-          // Found a match - update install_dir
-          game.install_dir = fullPath;
-          gamesDb().saveGame({
-            id: game.id,
-            name: game.name,
-            url: game.url,
-            install_dir: game.install_dir,
-            image_url: game.image_url,
-            platform: game.platform,
-            category: game.category,
-            dlcs: game.dlcs.map(d => ({
-              id: d.id,
-              name: d.name,
-              title: d.title,
-              image_url: d.image_url,
-            })),
-          });
-          updatedCount++;
-          break;
+        if (!stats.isDirectory()) {
+          return;
         }
+        
+        // Skip .downloads folder
+        if (entry.startsWith('.')) {
+          return;
+        }
+        
+        // Check if this directory has wine_prefix/drive_c (Windows game) or a start script (Linux game)
+        const winePrefix = path.join(fullPath, 'wine_prefix', 'drive_c');
+        const startScript = path.join(fullPath, 'start.sh');
+        
+        const [winePrefixExists, startScriptExists] = await Promise.all([
+          fs.promises.access(winePrefix).then(() => true).catch(() => false),
+          fs.promises.access(startScript).then(() => true).catch(() => false)
+        ]);
+        
+        const isInstalled = winePrefixExists || startScriptExists;
+        
+        if (!isInstalled) {
+          return;
+        }
+        
+        // Normalize the directory name for comparison
+        const normalizedDir = normalizeDirName(entry);
+        
+        // Try to find a matching game in the cache
+        for (const game of APP_STATE.gamesCache.values()) {
+          const gameDir = Game.sanitizeFolderName(game.name);
+          const normalizedGameDir = normalizeDirName(gameDir);
+          
+          // Match by normalized name
+          if (normalizedGameDir === normalizedDir && !game.install_dir) {
+            // Found a match - update install_dir
+            game.install_dir = fullPath;
+            gamesDb().saveGame({
+              id: game.id,
+              name: game.name,
+              url: game.url,
+              install_dir: game.install_dir,
+              image_url: game.image_url,
+              platform: game.platform,
+              category: game.category,
+              dlcs: game.dlcs.map(d => ({
+                id: d.id,
+                name: d.name,
+                title: d.title,
+                image_url: d.image_url,
+              })),
+            });
+            updatedCount++;
+            break;
+          }
+        }
+      } catch (error) {
+        // Skip entries that cause errors (permissions, etc)
+        console.warn(`Error processing directory ${entry}:`, error);
       }
-    }
+    }));
   } catch (error) {
     console.error('Error scanning for installed games:', error);
   }
