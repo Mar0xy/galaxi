@@ -157,6 +157,13 @@ export class GameInstaller {
       });
     });
 
+    // Ensure winetricks is available (download if needed)
+    const winetricksPath = await this.ensureWinetricks();
+    if (!winetricksPath) {
+      console.warn('Warning: winetricks not available, skipping component installation');
+      return;
+    }
+
     // Now run winetricks to install components
     console.log('Running winetricks to install corefonts, dxvk, vkd3d...');
     const components = ['corefonts', 'dxvk', 'vkd3d'];
@@ -168,7 +175,7 @@ export class GameInstaller {
           WINE: wineExecutable || 'wine',
         };
 
-        const proc = child_process.spawn('winetricks', ['-q', component], { env: winetricksEnv });
+        const proc = child_process.spawn(winetricksPath, ['-q', component], { env: winetricksEnv });
 
         proc.on('close', (code: number) => {
           if (code !== 0) {
@@ -183,5 +190,89 @@ export class GameInstaller {
         });
       });
     }
+  }
+
+  private async ensureWinetricks(): Promise<string | null> {
+    // First check if winetricks is in PATH
+    try {
+      const result = await new Promise<string | null>((resolve) => {
+        child_process.exec('which winetricks', (error, stdout) => {
+          if (!error && stdout) {
+            resolve(stdout.trim());
+          } else {
+            resolve(null);
+          }
+        });
+      });
+      
+      if (result) {
+        return result;
+      }
+    } catch (err) {
+      // Continue to download
+    }
+
+    // Download winetricks to cache directory
+    const { APP_STATE } = await import('./simple');
+    const cacheDir = path.join(APP_STATE.config.install_dir, '..', 'cache');
+    
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir, { recursive: true });
+    }
+
+    const winetricksPath = path.join(cacheDir, 'winetricks');
+
+    // If already downloaded and executable, use it
+    if (fs.existsSync(winetricksPath)) {
+      return winetricksPath;
+    }
+
+    // Download winetricks
+    console.log('Downloading winetricks...');
+    const url = 'https://raw.githubusercontent.com/Winetricks/winetricks/refs/heads/master/src/winetricks';
+
+    try {
+      // Try curl first
+      await new Promise<void>((resolve, reject) => {
+        const proc = child_process.spawn('curl', ['-L', '-o', winetricksPath, url]);
+        proc.on('close', (code) => {
+          if (code === 0) {
+            resolve();
+          } else {
+            reject(new Error(`curl failed with code ${code}`));
+          }
+        });
+        proc.on('error', reject);
+      });
+    } catch (err) {
+      // Try wget as fallback
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const proc = child_process.spawn('wget', ['-O', winetricksPath, url]);
+          proc.on('close', (code) => {
+            if (code === 0) {
+              resolve();
+            } else {
+              reject(new Error(`wget failed with code ${code}`));
+            }
+          });
+          proc.on('error', reject);
+        });
+      } catch (wgetErr) {
+        console.warn('Failed to download winetricks. Please install it manually with: sudo apt install winetricks');
+        return null;
+      }
+    }
+
+    // Make executable
+    try {
+      fs.chmodSync(winetricksPath, 0o755);
+    } catch (err) {
+      console.warn('Failed to make winetricks executable:', err);
+      return null;
+    }
+
+    console.log('Winetricks downloaded successfully');
+    return winetricksPath;
   }
 }
