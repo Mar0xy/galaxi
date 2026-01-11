@@ -22,7 +22,7 @@ export class GameInstaller {
 
   async installGame(
     game: Game,
-    downloadUrl: string,
+    installerPath: string,
     installDir: string,
     wineOptions?: WineOptions
   ): Promise<void> {
@@ -31,18 +31,28 @@ export class GameInstaller {
       fs.mkdirSync(installDir, { recursive: true });
     }
 
-    // Download installer
-    const installerPath = path.join(installDir, `${game.name}_installer.sh`);
-    await this.downloadManager.downloadFile(game, downloadUrl, installerPath);
+    // Verify installer file exists
+    if (!fs.existsSync(installerPath)) {
+      throw new GalaxiError(
+        `Installer file not found: ${installerPath}`,
+        GalaxiErrorType.InstallError
+      );
+    }
 
-    // Make executable
-    fs.chmodSync(installerPath, 0o755);
-
-    // Run installer if it's a Linux game
-    if (game.platform === 'linux') {
+    // Get file extension to determine installer type
+    const fileName = path.basename(installerPath);
+    
+    // Make executable for Linux installers
+    if (fileName.endsWith('.sh')) {
+      fs.chmodSync(installerPath, 0o755);
       await this.runLinuxInstaller(installerPath, installDir);
-    } else if (game.platform === 'windows' && wineOptions) {
+    } else if (fileName.endsWith('.exe') && wineOptions) {
       await this.runWindowsInstaller(installerPath, installDir, wineOptions);
+    } else {
+      throw new GalaxiError(
+        `Unsupported installer type: ${fileName}`,
+        GalaxiErrorType.InstallError
+      );
     }
   }
 
