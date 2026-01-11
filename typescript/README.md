@@ -131,7 +131,6 @@ Or on error:
 Key dependencies:
 
 - **axios**: HTTP client for GOG API calls
-- **better-sqlite3**: SQLite database for local storage (games, playtime)
 - **md5**: File checksums for downloads
 
 All dependencies are bundled into the standalone executable when using `bun build --compile`.
