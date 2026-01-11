@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { ConfigDto } from './dto';
@@ -110,26 +109,6 @@ export class Config {
     this.install_dir = getDefaultInstallDir();
   }
 
-  static load(): Config {
-    const configPath = getConfigFilePath();
-    if (fs.existsSync(configPath)) {
-      try {
-        const content = fs.readFileSync(configPath, 'utf-8');
-        const data = JSON.parse(content);
-        const config = new Config();
-        Object.assign(config, data);
-        // Convert paused_downloads object to Map
-        if (data.paused_downloads && typeof data.paused_downloads === 'object') {
-          config.paused_downloads = new Map(Object.entries(data.paused_downloads).map(([k, v]) => [k, v as number]));
-        }
-        return config;
-      } catch (e) {
-        return new Config();
-      }
-    }
-    return new Config();
-  }
-
   static loadFromDb(): Config {
     const config = new Config();
     try {
@@ -165,21 +144,7 @@ export class Config {
   }
 
   save(): void {
-    this.saveToFile();
     this.saveToDb();
-  }
-
-  private saveToFile(): void {
-    const configPath = getConfigFilePath();
-    const dir = path.dirname(configPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    // Convert Map to object for JSON serialization
-    const data = { ...this };
-    (data as any).paused_downloads = Object.fromEntries(this.paused_downloads);
-    const content = JSON.stringify(data, null, 2);
-    fs.writeFileSync(configPath, content, 'utf-8');
   }
 
   saveToDb(): void {
