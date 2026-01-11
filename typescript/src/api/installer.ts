@@ -85,11 +85,8 @@ export class GameInstaller {
     installDir: string,
     wineOptions: WineOptions
   ): Promise<void> {
-    // Set up Wine prefix
+    // Set up Wine prefix inside the game install directory
     const winePrefix = wineOptions.prefix || path.join(installDir, 'wine_prefix');
-    if (!fs.existsSync(winePrefix)) {
-      fs.mkdirSync(winePrefix, { recursive: true });
-    }
 
     const env: any = {
       ...process.env,
@@ -100,14 +97,15 @@ export class GameInstaller {
       env.WINE_DISABLE_FAST_SYNC = '1';
     }
 
-    // Auto-install DXVK if requested
+    // Auto-install DXVK and setup Wine prefix if requested
     if (wineOptions.auto_install_dxvk) {
-      await this.installDxvk(winePrefix, wineOptions.executable);
+      await this.setupWinePrefix(winePrefix, wineOptions.executable, wineOptions.disable_ntsync);
     }
 
     return new Promise((resolve, reject) => {
       const wineExec = wineOptions.executable || 'wine';
-      const process = child_process.spawn(wineExec, [installerPath, '/SILENT', `/DIR=${installDir}`], { env });
+      // Install to c:\game inside the Wine prefix (which maps to wine_prefix/drive_c/game)
+      const process = child_process.spawn(wineExec, [installerPath, '/VERYSILENT', '/NORESTART', '/SUPPRESSMSGBOXES', '/DIR=c:\\game'], { env });
 
       process.on('close', (code) => {
         if (code === 0) {
@@ -129,25 +127,61 @@ export class GameInstaller {
     });
   }
 
-  private async installDxvk(winePrefix: string, wineExecutable: string): Promise<void> {
-    // Run winetricks to install DXVK
-    return new Promise((resolve, reject) => {
-      const env: any = {
-        ...process.env,
-        WINEPREFIX: winePrefix,
-      };
+  private async setupWinePrefix(winePrefix: string, wineExecutable: string, disableNtsync: boolean): Promise<void> {
+    const env: any = {
+      ...process.env,
+      WINEPREFIX: winePrefix,
+    };
 
-      const proc = child_process.spawn('winetricks', ['dxvk', 'vkd3d'], { env });
+    if (disableNtsync) {
+      env.WINE_DISABLE_FAST_SYNC = '1';
+    }
 
-      proc.on('close', (code: number) => {
-        // Non-zero exit is okay for winetricks as it may not be available
+    // First, initialize the Wine prefix using wineboot
+    console.log('Initializing Wine prefix...');
+    await new Promise<void>((resolve) => {
+      const wineExec = wineExecutable || 'wine';
+      const wineboot = wineExec.replace('wine', 'wineboot');
+      
+      const proc = child_process.spawn(wineboot, ['--init'], { env });
+
+      proc.on('close', () => {
         resolve();
       });
 
       proc.on('error', () => {
-        // Winetricks not available, that's okay
-        resolve();
+        // Try with 'wine wineboot' if wineboot is not found
+        const fallbackProc = child_process.spawn(wineExec, ['wineboot', '--init'], { env });
+        fallbackProc.on('close', () => resolve());
+        fallbackProc.on('error', () => resolve());
       });
     });
+
+    // Now run winetricks to install components
+    console.log('Running winetricks to install corefonts, dxvk, vkd3d...');
+    const components = ['corefonts', 'dxvk', 'vkd3d'];
+    
+    for (const component of components) {
+      await new Promise<void>((resolve) => {
+        const winetricksEnv = {
+          ...env,
+          WINE: wineExecutable || 'wine',
+        };
+
+        const proc = child_process.spawn('winetricks', ['-q', component], { env: winetricksEnv });
+
+        proc.on('close', (code: number) => {
+          if (code !== 0) {
+            console.warn(`Warning: winetricks ${component} failed with code ${code}`);
+          }
+          resolve();
+        });
+
+        proc.on('error', (err) => {
+          console.warn(`Warning: Failed to run winetricks ${component}: ${err.message}`);
+          resolve();
+        });
+      });
+    }
   }
 }
