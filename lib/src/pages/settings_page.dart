@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:galaxi/src/backend/api.dart';
+import 'package:galaxi/src/constants.dart';
 
 class SettingsPage extends StatefulWidget {
   final Function(bool)? onThemeChanged;
@@ -16,9 +17,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  static const String _appVersion = '1.0.0';
-  static const int _copyrightYear = 2026;
-  
   String _installDir = '';
   String _language = 'en';
   bool _darkTheme = false;
@@ -237,14 +235,13 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: () {
               showAboutDialog(
                 context: context,
-                applicationName: 'Galaxi',
-                applicationVersion: _appVersion,
-                applicationLegalese: '© $_copyrightYear Galaxi',
+                applicationName: AppConstants.appName,
+                applicationVersion: AppConstants.appVersion,
+                applicationLegalese: '© ${AppConstants.copyrightYear} ${AppConstants.appName}',
                 children: [
                   const SizedBox(height: 16),
-                  const Text(
-                    'A simple GOG client for Linux.\n\n'
-                    'Built with Flutter and Rust.',
+                  Text(
+                    '${AppConstants.appDescription}\n\n${AppConstants.builtWith}',
                   ),
                 ],
               );

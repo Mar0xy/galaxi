@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:galaxi/src/backend/api.dart';
 import 'package:galaxi/src/pages/home_page.dart';
+import 'package:galaxi/src/constants.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,7 +53,7 @@ class _GalaxiAppState extends State<GalaxiApp> {
     }
 
     return MaterialApp(
-      title: 'Galaxi',
+      title: AppConstants.appName,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.purple,

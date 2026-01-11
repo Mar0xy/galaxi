@@ -19,14 +19,16 @@ class InstallButton extends StatefulWidget {
 }
 
 class _InstallButtonState extends State<InstallButton> {
-  static const int _maxNullProgressAttempts = 60;
+  // Maximum number of 500ms polling attempts (30 seconds total) before timeout
+  static const int _downloadTimeoutAttempts = 60;
   
   String _status = 'idle'; // idle, downloading, installing, complete, error
   double _progress = 0.0;
   String? _errorMessage;
 
-  /// Helper function to convert dynamic BigInt or int to int
+  /// Helper function to safely convert dynamic BigInt or int to int
   int _convertToInt(dynamic value) {
+    if (value == null) return 0;
     return value is BigInt ? value.toInt() : value as int;
   }
 
@@ -75,14 +77,14 @@ class _InstallButtonState extends State<InstallButton> {
             nullProgressCount++;
             // Only assume complete if we've seen some progress before
             // (null at the very start means download hasn't begun yet)
-            if (nullProgressCount > _maxNullProgressAttempts) {
+            if (nullProgressCount > _downloadTimeoutAttempts) {
               throw Exception('Download timed out - no progress received');
             }
           }
         } catch (e) {
           // If getting progress fails, continue polling
           nullProgressCount++;
-          if (nullProgressCount > _maxNullProgressAttempts) {
+          if (nullProgressCount > _downloadTimeoutAttempts) {
             throw Exception('Failed to get download progress: $e');
           }
         }
