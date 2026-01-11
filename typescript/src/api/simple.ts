@@ -303,6 +303,20 @@ export async function installGame(gameId: number, installerUrl: string): Promise
   
   await APP_STATE.installer.installGame(game, installerUrl, installDir, wineOptions);
   
+  // Clean up installer files if not keeping them
+  if (!APP_STATE.config.keep_installers) {
+    const downloadsDir = path.join(APP_STATE.config.install_dir, '.downloads');
+    try {
+      if (fs.existsSync(downloadsDir)) {
+        console.log('Cleaning up downloaded installer files...');
+        fs.rmSync(downloadsDir, { recursive: true, force: true });
+      }
+    } catch (error) {
+      console.warn('Failed to clean up installer files:', error);
+      // Don't fail installation if cleanup fails
+    }
+  }
+  
   // Update cache and database
   APP_STATE.gamesCache.set(gameId, game);
   const gameDto: GameDto = {
