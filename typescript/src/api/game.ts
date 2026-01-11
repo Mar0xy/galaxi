@@ -80,4 +80,17 @@ export class Game {
     game.dlcs = dto.dlcs.map(d => new Dlc(d.id, d.name, d.title, d.image_url));
     return game;
   }
+
+  /**
+   * Get a sanitized folder name for this game, removing special characters
+   * that are not allowed in folder names (like : * ? " < > |)
+   */
+  getInstallDirectoryName(): string {
+    // Keep only alphanumeric characters and whitespace, then trim
+    return this.name
+      .split('')
+      .filter(c => /[a-zA-Z0-9\s]/.test(c))
+      .join('')
+      .trim();
+  }
 }

@@ -284,7 +284,8 @@ export async function installGame(gameId: number, installerUrl: string): Promise
     throw new GalaxiError('Game not found', GalaxiErrorType.NotFoundError);
   }
   
-  const installDir = `${APP_STATE.config.install_dir}/${game.name}`;
+  // Use sanitized directory name to avoid special characters in folder names
+  const installDir = `${APP_STATE.config.install_dir}/${game.getInstallDirectoryName()}`;
   game.install_dir = installDir;
   
   const wineOptions = {
@@ -537,7 +538,7 @@ export async function scanForInstalledGames(): Promise<number> {
       
       // Try to find a matching game in the cache
       for (const game of APP_STATE.gamesCache.values()) {
-        const gameDir = game.name.replace(/[^a-zA-Z0-9\s]/g, '');
+        const gameDir = game.getInstallDirectoryName();
         const normalizedGameDir = normalizeDirName(gameDir);
         
         // Match by normalized name
