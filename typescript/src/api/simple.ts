@@ -45,8 +45,8 @@ class AppState {
       console.error('Failed to initialize database:', error);
     }
 
-    // Load config from database or file
-    this.config = Config.load();
+    // Load config from database
+    this.config = Config.loadFromDb();
     this.downloadManager = new DownloadManager();
     this.installer = new GameInstaller(this.downloadManager);
   }
