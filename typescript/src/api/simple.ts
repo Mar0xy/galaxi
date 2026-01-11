@@ -21,6 +21,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 
+//  Game session tracking
+interface GameSession {
+  gameId: number;
+  pid: number;
+  startTime: number; // timestamp in ms
+}
+
 // Application state
 class AppState {
   config: Config;
@@ -28,6 +35,7 @@ class AppState {
   downloadManager: DownloadManager;
   installer: GameInstaller;
   gamesCache: Map<number, Game> = new Map();
+  gameSessions: Map<number, GameSession> = new Map(); // gameId -> session
 
   constructor() {
     // Initialize database first
@@ -41,6 +49,18 @@ class AppState {
     this.config = Config.load();
     this.downloadManager = new DownloadManager();
     this.installer = new GameInstaller(this.downloadManager);
+    
+    // Periodically clean up finished game sessions
+    setInterval(() => this.cleanupFinishedSessions(), 5000);
+  }
+  
+  private cleanupFinishedSessions() {
+    for (const [gameId, session] of this.gameSessions.entries()) {
+      if (!isProcessRunning(session.pid)) {
+        console.log(`Game ${gameId} (PID ${session.pid}) has stopped`);
+        this.gameSessions.delete(gameId);
+      }
+    }
   }
 }
 
@@ -390,6 +410,16 @@ export async function launchGameById(gameId: number): Promise<LaunchResultDto> {
   const result = await launchGame(game, game.platform === 'windows' ? wineOptions : undefined);
   
   console.log(`Launch result for ${game.name}:`, result);
+  
+  // Track game session if launch was successful
+  if (result.success && result.pid) {
+    console.log(`Tracking game session for ${game.name} (PID: ${result.pid})`);
+    APP_STATE.gameSessions.set(gameId, {
+      gameId: gameId,
+      pid: result.pid,
+      startTime: Date.now(),
+    });
+  }
   
   return result;
 }
@@ -924,6 +954,73 @@ export async function openWinetricks(gameId: number): Promise<void> {
     detached: true,
     stdio: 'ignore',
   }).unref();
+}
+
+// ============================================================================
+// Game Session Tracking API
+// ============================================================================
+
+/**
+ * Check if a process is currently running
+ */
+function isProcessRunning(pid: number): boolean {
+  try {
+    // Sending signal 0 checks if process exists without killing it
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Check if a game is currently running
+ */
+export function isGameRunning(gameId: number): boolean {
+  const session = APP_STATE.gameSessions.get(gameId);
+  if (!session) {
+    return false;
+  }
+  
+  const running = isProcessRunning(session.pid);
+  if (!running) {
+    // Clean up if process is no longer running
+    APP_STATE.gameSessions.delete(gameId);
+  }
+  return running;
+}
+
+/**
+ * Get the playtime for a currently running game (in seconds)
+ */
+export function getGamePlaytime(gameId: number): number {
+  const session = APP_STATE.gameSessions.get(gameId);
+  if (!session || !isProcessRunning(session.pid)) {
+    return 0;
+  }
+  
+  const now = Date.now();
+  const playtimeMs = now - session.startTime;
+  return Math.floor(playtimeMs / 1000);
+}
+
+/**
+ * Get all currently running games with their playtime
+ */
+export function getRunningGames(): Array<{gameId: number; playtime: number}> {
+  const running: Array<{gameId: number; playtime: number}> = [];
+  
+  for (const [gameId, session] of APP_STATE.gameSessions.entries()) {
+    if (isProcessRunning(session.pid)) {
+      const playtime = Math.floor((Date.now() - session.startTime) / 1000);
+      running.push({ gameId, playtime });
+    } else {
+      // Clean up finished session
+      APP_STATE.gameSessions.delete(gameId);
+    }
+  }
+  
+  return running;
 }
 
 // Export types

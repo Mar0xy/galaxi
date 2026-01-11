@@ -262,6 +262,21 @@ Future<LaunchResultDto> launchGameAsync({required int gameId}) async {
   return await launchGameById(gameId);
 }
 
+// Game Session Tracking API
+Future<bool> isGameRunning(int gameId) async {
+  return await backendClient.call<bool>('isGameRunning', [gameId]);
+}
+
+Future<int> getGamePlaytime(int gameId) async {
+  return await backendClient.call<int>('getGamePlaytime', [gameId]);
+}
+
+Future<List<Map<String, dynamic>>> getRunningGames() async {
+  return await backendClient.call<List<dynamic>>('getRunningGames').then(
+    (result) => result.cast<Map<String, dynamic>>()
+  );
+}
+
 List<Map<String, String>> getSupportedLanguages() {
   return [
     {'code': 'en', 'name': 'English'},
