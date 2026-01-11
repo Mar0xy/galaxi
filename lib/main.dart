@@ -1517,7 +1517,7 @@ class _GamePageState extends State<GamePage> {
                     ),
                   ),
                   // Playtime counter overlay (top right)
-                  if (_isGameRunning && _playtime > 0)
+                  if (_playtime > 0)
                     Positioned(
                       top: 16,
                       right: 16,
