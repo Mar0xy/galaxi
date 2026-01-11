@@ -7,7 +7,7 @@ class AppConstants {
   static const String appDescription = 'A simple GOG client for Linux';
   
   // Build info
-  static const String builtWith = 'Built with Flutter and Rust.';
+  static const String builtWith = 'Built with Flutter and TypeScript';
   
   // Prevent instantiation
   AppConstants._();
