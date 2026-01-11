@@ -1310,6 +1310,7 @@ class _GamePageState extends State<GamePage> {
   List<String> _screenshots = [];
   bool _isGameRunning = false;
   int _playtime = 0;
+  int _totalPlaytimeFromDb = 0;
   Timer? _playtimeTimer;
 
   @override
@@ -1334,6 +1335,7 @@ class _GamePageState extends State<GamePage> {
       
       if (mounted) {
         setState(() {
+          _totalPlaytimeFromDb = totalPlaytime;
           _playtime = totalPlaytime;
           _isGameRunning = running;
         });
@@ -1352,17 +1354,20 @@ class _GamePageState extends State<GamePage> {
     _playtimeTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       try {
         final running = await isGameRunning(widget.game.id);
-        final playtime = await getGamePlaytime(widget.game.id);
+        final currentSessionPlaytime = await getGamePlaytime(widget.game.id);
         
         if (mounted) {
           setState(() {
             _isGameRunning = running;
-            _playtime = playtime;
+            // Show total time = database total + current session
+            _playtime = _totalPlaytimeFromDb + currentSessionPlaytime;
           });
         }
         
         if (!running) {
           timer.cancel();
+          // Reload total from database after game closes
+          _checkGameRunning();
         }
       } catch (e) {
         timer.cancel();
