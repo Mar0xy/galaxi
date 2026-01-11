@@ -105,7 +105,23 @@ export class GameInstaller {
     return new Promise((resolve, reject) => {
       const wineExec = wineOptions.executable || 'wine';
       // Install to c:\game inside the Wine prefix (which maps to wine_prefix/drive_c/game)
-      const process = child_process.spawn(wineExec, [installerPath, '/VERYSILENT', '/NORESTART', '/SUPPRESSMSGBOXES', '/DIR=c:\\game'], { env });
+      const process = child_process.spawn(
+        wineExec, 
+        [installerPath, '/VERYSILENT', '/NORESTART', '/SUPPRESSMSGBOXES', '/DIR=c:\\game'], 
+        { 
+          env,
+          stdio: ['ignore', 'pipe', 'pipe'] // Redirect stdin, stdout, stderr to prevent freezing
+        }
+      );
+
+      // Log output for debugging
+      process.stdout?.on('data', (data) => {
+        console.log(`Wine installer: ${data.toString().trim()}`);
+      });
+
+      process.stderr?.on('data', (data) => {
+        console.error(`Wine installer error: ${data.toString().trim()}`);
+      });
 
       process.on('close', (code) => {
         if (code === 0) {
@@ -143,7 +159,18 @@ export class GameInstaller {
       const wineExec = wineExecutable || 'wine';
       const wineboot = wineExec.replace('wine', 'wineboot');
       
-      const proc = child_process.spawn(wineboot, ['--init'], { env });
+      const proc = child_process.spawn(wineboot, ['--init'], { 
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'] // Redirect stdio to prevent freezing
+      });
+
+      // Log output
+      proc.stdout?.on('data', (data) => {
+        console.log(`wineboot: ${data.toString().trim()}`);
+      });
+      proc.stderr?.on('data', (data) => {
+        console.error(`wineboot error: ${data.toString().trim()}`);
+      });
 
       proc.on('close', () => {
         resolve();
@@ -151,7 +178,10 @@ export class GameInstaller {
 
       proc.on('error', () => {
         // Try with 'wine wineboot' if wineboot is not found
-        const fallbackProc = child_process.spawn(wineExec, ['wineboot', '--init'], { env });
+        const fallbackProc = child_process.spawn(wineExec, ['wineboot', '--init'], { 
+          env,
+          stdio: ['ignore', 'pipe', 'pipe']
+        });
         fallbackProc.on('close', () => resolve());
         fallbackProc.on('error', () => resolve());
       });
@@ -175,7 +205,18 @@ export class GameInstaller {
           WINE: wineExecutable || 'wine',
         };
 
-        const proc = child_process.spawn(winetricksPath, ['-q', component], { env: winetricksEnv });
+        const proc = child_process.spawn(winetricksPath, ['-q', component], { 
+          env: winetricksEnv,
+          stdio: ['ignore', 'pipe', 'pipe'] // Redirect stdio to prevent freezing
+        });
+
+        // Log output
+        proc.stdout?.on('data', (data) => {
+          console.log(`winetricks ${component}: ${data.toString().trim()}`);
+        });
+        proc.stderr?.on('data', (data) => {
+          console.error(`winetricks ${component} error: ${data.toString().trim()}`);
+        });
 
         proc.on('close', (code: number) => {
           if (code !== 0) {

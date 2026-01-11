@@ -46,6 +46,9 @@ class AppState {
 
 const APP_STATE = new AppState();
 
+// Export APP_STATE for internal use by other modules
+export { APP_STATE };
+
 // ============================================================================
 // Simple API functions
 // ============================================================================
