@@ -217,11 +217,6 @@ function getDefaultInstallDir(): string {
   return path.join(homeDir, 'GOG Games');
 }
 
-export function getConfigFilePath(): string {
-  const configDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
-  return path.join(configDir, 'galaxi', 'config.json');
-}
-
 export function getDataDir(): string {
   const dataDir = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
   return path.join(dataDir, 'galaxi');

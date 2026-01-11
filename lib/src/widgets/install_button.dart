@@ -19,9 +19,16 @@ class InstallButton extends StatefulWidget {
 }
 
 class _InstallButtonState extends State<InstallButton> {
+  static const int _maxNullProgressAttempts = 60;
+  
   String _status = 'idle'; // idle, downloading, installing, complete, error
   double _progress = 0.0;
   String? _errorMessage;
+
+  /// Helper function to convert dynamic BigInt or int to int
+  int _convertToInt(dynamic value) {
+    return value is BigInt ? value.toInt() : value as int;
+  }
 
   Future<void> _startInstall() async {
     setState(() {
@@ -40,7 +47,6 @@ class _InstallButtonState extends State<InstallButton> {
       // Poll for download progress
       bool downloadComplete = false;
       int nullProgressCount = 0;
-      const maxNullCount = 60; // 30 seconds of null progress before giving up
       
       while (!downloadComplete) {
         await Future.delayed(const Duration(milliseconds: 500));
@@ -48,13 +54,9 @@ class _InstallButtonState extends State<InstallButton> {
           final progress = await getDownloadProgress(gameId: widget.gameId);
           if (progress != null) {
             nullProgressCount = 0;
-            // Use toInt() for comparison since we might have BigInt or int
-            final downloaded = progress.downloadedBytes is BigInt 
-                ? (progress.downloadedBytes as BigInt).toInt() 
-                : progress.downloadedBytes as int;
-            final total = progress.totalBytes is BigInt 
-                ? (progress.totalBytes as BigInt).toInt() 
-                : progress.totalBytes as int;
+            // Use helper function for conversion
+            final downloaded = _convertToInt(progress.downloadedBytes);
+            final total = _convertToInt(progress.totalBytes);
             
             final percent = total > 0 ? downloaded / total : 0.0;
             setState(() {
@@ -73,14 +75,14 @@ class _InstallButtonState extends State<InstallButton> {
             nullProgressCount++;
             // Only assume complete if we've seen some progress before
             // (null at the very start means download hasn't begun yet)
-            if (nullProgressCount > maxNullCount) {
+            if (nullProgressCount > _maxNullProgressAttempts) {
               throw Exception('Download timed out - no progress received');
             }
           }
         } catch (e) {
           // If getting progress fails, continue polling
           nullProgressCount++;
-          if (nullProgressCount > maxNullCount) {
+          if (nullProgressCount > _maxNullProgressAttempts) {
             throw Exception('Failed to get download progress: $e');
           }
         }

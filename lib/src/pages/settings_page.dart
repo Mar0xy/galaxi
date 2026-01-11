@@ -16,6 +16,9 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  static const String _appVersion = '1.0.0';
+  static const int _copyrightYear = 2026;
+  
   String _installDir = '';
   String _language = 'en';
   bool _darkTheme = false;
@@ -235,8 +238,8 @@ class _SettingsPageState extends State<SettingsPage> {
               showAboutDialog(
                 context: context,
                 applicationName: 'Galaxi',
-                applicationVersion: '1.0.0',
-                applicationLegalese: '© 2026 Galaxi',
+                applicationVersion: _appVersion,
+                applicationLegalese: '© $_copyrightYear Galaxi',
                 children: [
                   const SizedBox(height: 16),
                   const Text(
