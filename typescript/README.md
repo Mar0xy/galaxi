@@ -35,7 +35,7 @@ bun run dev
 
 ### Option 3: Build Standalone Executable (Production)
 
-Build a self-contained executable that includes all dependencies and the Bun runtime:
+Build a self-contained executable for Linux x64 that includes all dependencies and the Bun runtime:
 
 ```bash
 cd typescript
@@ -48,7 +48,7 @@ This creates a `galaxi-backend` executable that users can run without installing
 ./galaxi-backend
 ```
 
-See [BUILD.md](./BUILD.md) for detailed build instructions and cross-platform compilation.
+See [BUILD.md](./BUILD.md) for detailed build instructions.
 
 The server will start on `http://localhost:3000` by default.
 

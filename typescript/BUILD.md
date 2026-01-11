@@ -11,34 +11,14 @@ curl -fsSL https://bun.sh/install | bash
 
 ## Build Commands
 
-### Build for Current Platform
+### Build for Linux (x64)
 ```bash
 cd typescript
 bun install  # Install dependencies first
 bun run build
 ```
 
-This creates `galaxi-backend` executable in the current directory.
-
-### Build for Specific Platforms
-
-**Linux (x64):**
-```bash
-bun run build:linux
-```
-Creates: `galaxi-backend-linux`
-
-**macOS (x64):**
-```bash
-bun run build:macos
-```
-Creates: `galaxi-backend-macos`
-
-**Windows (x64):**
-```bash
-bun run build:windows
-```
-Creates: `galaxi-backend-windows.exe`
+This creates `galaxi-backend` executable for Linux x64 in the current directory.
 
 ## Running the Executable
 
@@ -49,24 +29,22 @@ The standalone executable includes:
 
 Simply run it:
 ```bash
-./galaxi-backend        # Linux/macOS
-galaxi-backend.exe      # Windows
+./galaxi-backend
 ```
 
 The server will start on port 3000.
 
 ## Distribution
 
-Distribute the appropriate executable for each platform:
-- `galaxi-backend-linux` for Linux users
-- `galaxi-backend-macos` for macOS users  
-- `galaxi-backend-windows.exe` for Windows users
+The `galaxi-backend` executable is self-contained for Linux x64 users. Users won't need to install Node.js, Bun, or any dependencies!
 
-Users won't need to install Node.js, Bun, or any dependencies!
+## CI/CD
+
+The executable is automatically built in the GitHub Actions workflow and included in the Linux release package.
 
 ## Notes
 
-- The executable is self-contained but platform-specific
-- Cross-compilation is supported (build Windows executable on Linux, etc.)
+- The executable is self-contained but platform-specific (Linux x64 only)
 - The executable size will be ~50-80MB due to embedded Bun runtime
 - Better-sqlite3 native bindings are automatically bundled
+- The executable is built during CI and packaged with the Flutter app

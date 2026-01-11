@@ -1,13 +1,8 @@
 # Dependencies
 node_modules/
 
-# Build outputs
-dist/
-
-# Executables
+# Executable
 galaxi-backend
-galaxi-backend-*
-*.exe
 
 # Logs
 *.log

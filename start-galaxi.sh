@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Combined startup script for Galaxi
-# Starts TypeScript/Bun backend server and Flutter app
+# Starts backend server and Flutter app
 # Stops server when app exits
 
 set -e
@@ -18,35 +18,16 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}=== Starting Galaxi ===${NC}"
 
 # Check if standalone executable exists
-if [ -f "typescript/galaxi-backend" ] && [ -x "typescript/galaxi-backend" ]; then
+if [ -f "backend/galaxi-backend" ] && [ -x "backend/galaxi-backend" ]; then
     echo -e "${GREEN}Using standalone backend executable${NC}"
-    cd typescript
+    cd backend
     ./galaxi-backend &
     SERVER_PID=$!
     cd ..
 else
-    # Check if Bun is installed
-    if ! command -v bun &> /dev/null; then
-        echo -e "${RED}Bun is not installed and no standalone executable found.${NC}"
-        echo -e "${YELLOW}Please install Bun from https://bun.sh or build the executable:${NC}"
-        echo -e "${YELLOW}  cd typescript && bun run build${NC}"
-        exit 1
-    fi
-
-    # Check if dependencies are installed
-    if [ ! -d "typescript/node_modules" ]; then
-        echo -e "${YELLOW}Installing backend dependencies...${NC}"
-        cd typescript
-        bun install
-        cd ..
-    fi
-
-    # Start backend server with Bun in background
-    echo -e "${GREEN}Starting backend server with Bun...${NC}"
-    cd typescript
-    bun run start &
-    SERVER_PID=$!
-    cd ..
+    echo -e "${RED}Backend executable not found at backend/galaxi-backend${NC}"
+    echo -e "${YELLOW}Please build or install the backend first.${NC}"
+    exit 1
 fi
 
 # Give server time to start

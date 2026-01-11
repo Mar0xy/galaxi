@@ -32,20 +32,21 @@ jobs:
           flutter --disable-analytics
           dart --disable-analytics
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
         with:
-          node-version: '20'
+          bun-version: latest
       
-      - name: Install TypeScript dependencies
+      - name: Install backend dependencies
         run: |
           cd typescript
-          npm install
+          bun install
       
-      - name: Build TypeScript backend
+      - name: Build backend executable
         run: |
           cd typescript
-          npm run build
+          bun run build
+          chmod +x galaxi-backend
       
       - name: Get Flutter dependencies
         run: flutter pub get
@@ -56,10 +57,9 @@ jobs:
       - name: Package Linux app
         run: |
           cd build/linux/x64/release/bundle
-          # Include TypeScript backend in the package
+          # Include standalone backend executable in renamed folder
           mkdir -p backend
-          cp -r ../../../../../typescript/dist backend/
-          cp ../../../../../typescript/package.json backend/
+          cp ../../../../../typescript/galaxi-backend backend/
           cp ../../../../../start-galaxi.sh .
           tar -czvf ../../../../../galaxi-linux-x64.tar.gz *
       

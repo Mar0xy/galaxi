@@ -7,10 +7,7 @@
   "scripts": {
     "start": "bun src/server.ts",
     "dev": "bun --watch src/server.ts",
-    "build": "bun build src/server.ts --compile --outfile galaxi-backend",
-    "build:linux": "bun build src/server.ts --compile --target=bun-linux-x64 --outfile galaxi-backend-linux",
-    "build:macos": "bun build src/server.ts --compile --target=bun-darwin-x64 --outfile galaxi-backend-macos",
-    "build:windows": "bun build src/server.ts --compile --target=bun-windows-x64 --outfile galaxi-backend-windows.exe"
+    "build": "bun build src/server.ts --compile --target=bun-linux-x64 --outfile galaxi-backend"
   },
   "keywords": [
     "gog",
