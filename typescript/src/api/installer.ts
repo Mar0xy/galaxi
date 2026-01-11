@@ -104,27 +104,20 @@ export class GameInstaller {
 
     return new Promise((resolve, reject) => {
       const wineExec = wineOptions.executable || 'wine';
+      console.log('Running Wine installer...');
       // Install to c:\game inside the Wine prefix (which maps to wine_prefix/drive_c/game)
       const process = child_process.spawn(
         wineExec, 
         [installerPath, '/VERYSILENT', '/NORESTART', '/SUPPRESSMSGBOXES', '/DIR=c:\\game'], 
         { 
           env,
-          stdio: ['ignore', 'pipe', 'pipe'] // Redirect stdin, stdout, stderr to prevent freezing
+          stdio: ['ignore', 'ignore', 'ignore'] // Ignore all stdio to prevent console flooding
         }
       );
 
-      // Log output for debugging
-      process.stdout?.on('data', (data) => {
-        console.log(`Wine installer: ${data.toString().trim()}`);
-      });
-
-      process.stderr?.on('data', (data) => {
-        console.error(`Wine installer error: ${data.toString().trim()}`);
-      });
-
       process.on('close', (code) => {
         if (code === 0) {
+          console.log('Wine installer completed successfully');
           resolve();
         } else {
           reject(new GalaxiError(
@@ -161,18 +154,11 @@ export class GameInstaller {
       
       const proc = child_process.spawn(wineboot, ['--init'], { 
         env,
-        stdio: ['ignore', 'pipe', 'pipe'] // Redirect stdio to prevent freezing
-      });
-
-      // Log output
-      proc.stdout?.on('data', (data) => {
-        console.log(`wineboot: ${data.toString().trim()}`);
-      });
-      proc.stderr?.on('data', (data) => {
-        console.error(`wineboot error: ${data.toString().trim()}`);
+        stdio: ['ignore', 'ignore', 'ignore'] // Ignore all stdio to prevent console flooding
       });
 
       proc.on('close', () => {
+        console.log('Wine prefix initialized');
         resolve();
       });
 
@@ -180,9 +166,12 @@ export class GameInstaller {
         // Try with 'wine wineboot' if wineboot is not found
         const fallbackProc = child_process.spawn(wineExec, ['wineboot', '--init'], { 
           env,
-          stdio: ['ignore', 'pipe', 'pipe']
+          stdio: ['ignore', 'ignore', 'ignore']
         });
-        fallbackProc.on('close', () => resolve());
+        fallbackProc.on('close', () => {
+          console.log('Wine prefix initialized (fallback)');
+          resolve();
+        });
         fallbackProc.on('error', () => resolve());
       });
     });
@@ -195,7 +184,7 @@ export class GameInstaller {
     }
 
     // Now run winetricks to install components
-    console.log('Running winetricks to install corefonts, dxvk, vkd3d...');
+    console.log('Installing Wine components (corefonts, dxvk, vkd3d)...');
     const components = ['corefonts', 'dxvk', 'vkd3d'];
     
     for (const component of components) {
@@ -207,20 +196,14 @@ export class GameInstaller {
 
         const proc = child_process.spawn(winetricksPath, ['-q', component], { 
           env: winetricksEnv,
-          stdio: ['ignore', 'pipe', 'pipe'] // Redirect stdio to prevent freezing
-        });
-
-        // Log output
-        proc.stdout?.on('data', (data) => {
-          console.log(`winetricks ${component}: ${data.toString().trim()}`);
-        });
-        proc.stderr?.on('data', (data) => {
-          console.error(`winetricks ${component} error: ${data.toString().trim()}`);
+          stdio: ['ignore', 'ignore', 'ignore'] // Ignore all stdio to prevent console flooding
         });
 
         proc.on('close', (code: number) => {
           if (code !== 0) {
             console.warn(`Warning: winetricks ${component} failed with code ${code}`);
+          } else {
+            console.log(`Installed ${component}`);
           }
           resolve();
         });
@@ -231,6 +214,7 @@ export class GameInstaller {
         });
       });
     }
+    console.log('Wine components installation complete');
   }
 
   private async ensureWinetricks(): Promise<string | null> {
