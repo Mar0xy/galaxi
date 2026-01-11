@@ -1328,9 +1328,18 @@ class _GamePageState extends State<GamePage> {
   
   Future<void> _checkGameRunning() async {
     try {
+      // Always load total playtime from database first
+      final totalPlaytime = await getTotalGamePlaytime(widget.game.id);
       final running = await isGameRunning(widget.game.id);
+      
+      if (mounted) {
+        setState(() {
+          _playtime = totalPlaytime;
+          _isGameRunning = running;
+        });
+      }
+      
       if (running) {
-        setState(() => _isGameRunning = true);
         _startPlaytimeTracking();
       }
     } catch (e) {
