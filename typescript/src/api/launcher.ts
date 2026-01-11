@@ -116,8 +116,21 @@ async function launchWindowsGame(
     );
   }
 
+  // Windows games are installed to wine_prefix/drive_c/game inside the install directory
+  const winePrefix = wineOptions.wine_prefix || path.join(installDir, 'wine_prefix');
+  const gameDir = path.join(winePrefix, 'drive_c', 'game');
+  
+  console.log(`Looking for game executable in: ${gameDir}`);
+  
+  if (!fs.existsSync(gameDir)) {
+    throw new GalaxiError(
+      `Game directory not found at ${gameDir}`,
+      GalaxiErrorType.LaunchError
+    );
+  }
+
   // Find Windows executable
-  const exeFiles = findExecutables(installDir);
+  const exeFiles = findExecutables(gameDir);
   
   if (exeFiles.length === 0) {
     throw new GalaxiError(
@@ -133,8 +146,10 @@ async function launchWindowsGame(
   });
 
   const exePath = filteredExes[0] || exeFiles[0];
-
-  const winePrefix = wineOptions.wine_prefix || path.join(installDir, 'wine_prefix');
+  
+  console.log(`Launching Windows game: ${game.name}`);
+  console.log(`Executable: ${exePath}`);
+  console.log(`Wine prefix: ${winePrefix}`);
   
   const env: any = {
     ...process.env,

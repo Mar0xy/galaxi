@@ -365,9 +365,19 @@ export async function installGame(gameId: number, installerUrl: string): Promise
 // ============================================================================
 
 export async function launchGameById(gameId: number): Promise<LaunchResultDto> {
+  console.log(`launchGameById called for game ID: ${gameId}`);
+  
   const game = APP_STATE.gamesCache.get(gameId);
   if (!game) {
+    console.error(`Game ${gameId} not found in cache`);
     throw new GalaxiError('Game not found', GalaxiErrorType.NotFoundError);
+  }
+  
+  console.log(`Game found: ${game.name}, platform: ${game.platform}, install_dir: ${game.install_dir}`);
+  
+  if (!game.install_dir) {
+    console.error(`Game ${game.name} has no install_dir set`);
+    throw new GalaxiError('Game is not installed', GalaxiErrorType.LaunchError);
   }
   
   const wineOptions = {
@@ -378,6 +388,8 @@ export async function launchGameById(gameId: number): Promise<LaunchResultDto> {
   };
   
   const result = await launchGame(game, game.platform === 'windows' ? wineOptions : undefined);
+  
+  console.log(`Launch result for ${game.name}:`, result);
   
   return result;
 }
