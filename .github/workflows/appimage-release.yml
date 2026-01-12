@@ -79,17 +79,18 @@ jobs:
       
       - name: Build AppImage
         run: |
+          cd appimage
           appimage-builder --recipe AppImageBuilder.yml --skip-test
       
       - name: Rename AppImage with version
         run: |
-          # Find the generated AppImage
-          APPIMAGE=$(find . -maxdepth 1 -name "*.AppImage" -type f)
+          # Find the generated AppImage in appimage directory
+          APPIMAGE=$(find appimage -maxdepth 1 -name "*.AppImage" -type f)
           if [ -z "$APPIMAGE" ]; then
             echo "Error: No AppImage found"
             exit 1
           fi
-          # Rename with version
+          # Move and rename with version
           mv "$APPIMAGE" "galaxi-${{ steps.version.outputs.version }}-x86_64.AppImage"
           echo "AppImage created: galaxi-${{ steps.version.outputs.version }}-x86_64.AppImage"
       
