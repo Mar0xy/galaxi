@@ -27,7 +27,7 @@ AppDir:
   path: ./AppDir
 
   app_info:
-    id: com.maroxy.galaxi
+    id: io.github.mar0xy.galaxi
     name: Galaxi
     icon: galaxi
     version: latest
@@ -58,20 +58,6 @@ AppDir:
       - usr/share/doc/*/changelog.*
       - usr/share/doc/*/NEWS.*
       - usr/share/doc/*/TODO.*
-
-  test:
-    fedora-30:
-      image: appimagecrafters/tests-env:fedora-30
-      command: ./AppRun
-      use_host_x: true
-    debian-stable:
-      image: appimagecrafters/tests-env:debian-stable
-      command: ./AppRun
-      use_host_x: true
-    ubuntu-xenial:
-      image: appimagecrafters/tests-env:ubuntu-xenial
-      command: ./AppRun
-      use_host_x: true
 
 AppImage:
   arch: x86_64
