@@ -31,8 +31,6 @@ AppDir:
     name: Galaxi
     icon: galaxi
     version: latest
-    exec: AppRun
-    exec_args: $@
 
   apt:
     arch: amd64
