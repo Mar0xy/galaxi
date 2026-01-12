@@ -65,7 +65,7 @@ jobs:
           # Note: Downloading from continuous release. The URL is specified in the issue.
           # For production use, consider pinning to a specific release version.
           wget -q https://github.com/Lord-Kamina/appimage-builder/releases/download/continuous/appimage-builder_x86_64-AppImage.tar
-          tar -xf appimage-builder_x86_64-AppImage.tar
+          tar -xvf appimage-builder_x86_64-AppImage.tar --transform='s/.*\///'
           chmod +x appimage-builder-*-x86_64.AppImage
           # Move to a location in PATH
           sudo mv appimage-builder-*-x86_64.AppImage /usr/local/bin/appimage-builder
