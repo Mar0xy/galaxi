@@ -14,9 +14,9 @@ script:
   - mkdir -p AppDir/usr/bin/backend
   - cp typescript/galaxi-backend AppDir/usr/bin/backend/
   - chmod +x AppDir/usr/bin/backend/galaxi-backend
-  # Copy startup script
-  - cp start-galaxi.sh AppDir/usr/bin/
-  - chmod +x AppDir/usr/bin/start-galaxi.sh
+  # Copy AppRun script
+  - cp AppRun.sh AppDir/AppRun
+  - chmod +x AppDir/AppRun
   # Copy desktop file and icon
   - cp galaxi.desktop AppDir/usr/share/applications/
   - cp galaxi.svg AppDir/usr/share/icons/hicolor/scalable/apps/galaxi.svg
@@ -31,7 +31,7 @@ AppDir:
     name: Galaxi
     icon: galaxi
     version: latest
-    exec: usr/bin/start-galaxi.sh
+    exec: usr/bin/galaxi
     exec_args: $@
 
   apt:
