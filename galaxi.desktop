@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Galaxi
+Comment=A GOG Galaxy client for Linux
+Exec=start-galaxi.sh
+Icon=galaxi
+Terminal=false
+Type=Application
+Categories=Game;Utility;
