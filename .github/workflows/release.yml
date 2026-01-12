@@ -1,8 +1,6 @@
-name: Build AppImage and Create Pre-Release
+name: Build App and Create Pre-Release
 
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +10,7 @@ env:
   CHANGELOG_COMMIT_LIMIT: 20  # Maximum number of commits to include in changelog when no tags exist
 
 jobs:
-  build-appimage:
+  release-build:
     runs-on: ubuntu-22.04
     
     steps:
@@ -59,28 +57,6 @@ jobs:
       
       - name: Build Linux app
         run: flutter build linux --release
-
-      - name: Install SHC
-        run: |
-          sudo add-apt-repository ppa:neurobin/ppa
-          sudo apt-get update
-          sudo apt-get install shc
-
-      - name: Convert Shell to Binary
-        run: |
-          cp appimage/AppRun.sh AppRun.sh
-          shc -f AppRun.sh -o galaxi-run
-          rm AppRun.sh
-
-      - name: Download and setup appimage-builder
-        run: |
-          # Note: Downloading from continuous release. The URL is specified in the issue.
-          # For production use, consider pinning to a specific release version.
-          wget -q https://github.com/Lord-Kamina/appimage-builder/releases/download/continuous/appimage-builder_x86_64-AppImage.tar
-          tar -xvf appimage-builder_x86_64-AppImage.tar --transform='s/.*\///'
-          chmod +x appimage-builder-*-x86_64.AppImage
-          # Move to a location in PATH
-          sudo mv appimage-builder-*-x86_64.AppImage /usr/local/bin/appimage-builder
       
       - name: Extract version from pubspec.yaml
         id: version
@@ -88,23 +64,15 @@ jobs:
           VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version detected: $VERSION"
-      
-      - name: Build AppImage
+
+      - name: Package Linux app
         run: |
-          cd appimage
-          appimage-builder --recipe AppImageBuilder.yml --skip-test
-      
-      - name: Rename AppImage with version
-        run: |
-          # Find the generated AppImage in appimage directory
-          APPIMAGE=$(find appimage -maxdepth 1 -name "*.AppImage" -type f)
-          if [ -z "$APPIMAGE" ]; then
-            echo "Error: No AppImage found"
-            exit 1
-          fi
-          # Move and rename with version
-          mv "$APPIMAGE" "galaxi-${{ steps.version.outputs.version }}-x86_64.AppImage"
-          echo "AppImage created: galaxi-${{ steps.version.outputs.version }}-x86_64.AppImage"
+          cd build/linux/x64/release/bundle
+          # Include standalone backend executable in renamed folder
+          mkdir -p backend
+          cp ../../../../../typescript/galaxi-backend backend/
+          cp ../../../../../start-galaxi.sh .
+          tar -czvf "../../../../../galaxi-linux-${{ steps.version.outputs.version }}-x64.tar.gz" *
       
       - name: Generate changelog
         id: changelog
@@ -129,9 +97,10 @@ jobs:
           
           ### Installation
           
-          1. Download the AppImage file
-          2. Make it executable: \`chmod +x galaxi-*.AppImage\`
-          3. Run it: \`./galaxi-*.AppImage\`
+          1. Download the tar.gz file
+          2. Extract it
+          3. Go into folder
+          3. Run it: \`./start-galaxi.sh\`
           
           ### Requirements
           
@@ -155,13 +124,6 @@ jobs:
           body_path: changelog.md
           prerelease: true
           files: |
-            galaxi-${{ steps.version.outputs.version }}-x86_64.AppImage
+            galaxi-${{ steps.version.outputs.version }}-x64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Upload AppImage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: galaxi-appimage
-          path: galaxi-${{ steps.version.outputs.version }}-x86_64.AppImage
-          retention-days: 30
