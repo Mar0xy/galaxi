@@ -26,12 +26,6 @@ script:
 AppDir:
   path: ./AppDir
 
-  app_info:
-    id: io.github.mar0xy.galaxi
-    name: Galaxi
-    icon: galaxi
-    version: latest
-
   apt:
     arch: amd64
     sources:
@@ -59,4 +53,3 @@ AppDir:
 
 AppImage:
   arch: x86_64
-  update-information: guess
