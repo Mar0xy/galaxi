@@ -69,7 +69,7 @@ jobs:
       - name: Convert Shell to Binary
         run: |
           cp appimage/AppRun.sh AppRun.sh
-          shc -H -f AppRun.sh -o galaxi-run
+          shc -f AppRun.sh -o galaxi-run
           rm AppRun.sh
 
       - name: Download and setup appimage-builder
