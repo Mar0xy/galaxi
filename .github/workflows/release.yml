@@ -72,7 +72,7 @@ jobs:
           mkdir -p backend
           cp ../../../../../typescript/galaxi-backend backend/
           cp ../../../../../start-galaxi.sh .
-          tar -czvf "../../../../../galaxi-linux-${{ steps.version.outputs.version }}-x64.tar.gz" *
+          tar -czvf "../../../../../galaxi-${{ steps.version.outputs.version }}-x64.tar.gz" *
       
       - name: Generate changelog
         id: changelog
