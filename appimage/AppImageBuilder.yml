@@ -31,7 +31,7 @@ AppDir:
     name: Galaxi
     icon: galaxi
     version: latest
-    exec: usr/bin/galaxi
+    exec: AppRun
     exec_args: $@
 
   apt:
