@@ -9,19 +9,19 @@ script:
   - mkdir -p AppDir/usr/share/applications
   - mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
   # Copy the Flutter build
-  - cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+  - cp -r ../build/linux/x64/release/bundle/* AppDir/usr/bin/
   # Copy backend
   - mkdir -p AppDir/usr/bin/backend
-  - cp typescript/galaxi-backend AppDir/usr/bin/backend/
+  - cp ../typescript/galaxi-backend AppDir/usr/bin/backend/
   - chmod +x AppDir/usr/bin/backend/galaxi-backend
   # Copy AppRun script
   - cp AppRun.sh AppDir/AppRun
   - chmod +x AppDir/AppRun
   # Copy desktop file and icon
-  - cp galaxi.desktop AppDir/usr/share/applications/
-  - cp galaxi.svg AppDir/usr/share/icons/hicolor/scalable/apps/galaxi.svg
-  - cp galaxi.svg AppDir/galaxi.svg
-  - cp galaxi.desktop AppDir/galaxi.desktop
+  - cp ../galaxi.desktop AppDir/usr/share/applications/
+  - cp ../galaxi.svg AppDir/usr/share/icons/hicolor/scalable/apps/galaxi.svg
+  - cp ../galaxi.svg AppDir/galaxi.svg
+  - cp ../galaxi.desktop AppDir/galaxi.desktop
 
 AppDir:
   path: ./AppDir
