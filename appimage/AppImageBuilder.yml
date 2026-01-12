@@ -17,7 +17,7 @@ script:
   # Copy AppRun script
   - cp AppRun.sh AppDir/AppRun
   - chmod +x AppDir/AppRun
-  - cp galaxi-run AppDir/galaxi-run
+  - cp ../galaxi-run AppDir/galaxi-run
   # Copy desktop file and icon
   - cp ../galaxi.desktop AppDir/usr/share/applications/
   - cp ../galaxi.svg AppDir/usr/share/icons/hicolor/scalable/apps/galaxi.svg
