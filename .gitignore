@@ -56,3 +56,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 _codeql*
+
+# AppImage build artifacts
+AppDir/
+*.AppImage
+appimage-builder-*-x86_64.AppImage
+appimage-builder_x86_64-AppImage.tar
+changelog.md
