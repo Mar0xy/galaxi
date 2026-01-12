@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  CHANGELOG_COMMIT_LIMIT: 20  # Maximum number of commits to include in changelog when no tags exist
+
 jobs:
   build-appimage:
     runs-on: ubuntu-22.04
@@ -59,6 +62,8 @@ jobs:
       
       - name: Download and setup appimage-builder
         run: |
+          # Note: Downloading from continuous release. The URL is specified in the issue.
+          # For production use, consider pinning to a specific release version.
           wget -q https://github.com/Lord-Kamina/appimage-builder/releases/download/continuous/appimage-builder_x86_64-AppImage.tar
           tar -xf appimage-builder_x86_64-AppImage.tar
           chmod +x appimage-builder-*-x86_64.AppImage
@@ -96,7 +101,7 @@ jobs:
           
           if [ -z "$LATEST_TAG" ]; then
             echo "No previous tags found, generating full history"
-            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges | head -20)
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges | head -${{ env.CHANGELOG_COMMIT_LIMIT }})
           else
             echo "Generating changelog since $LATEST_TAG"
             COMMITS=$(git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
