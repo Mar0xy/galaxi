@@ -48,7 +48,7 @@ cleanup() {
     echo -e "\n${YELLOW}Stopping backend server...${NC}"
     if kill -0 $SERVER_PID 2>/dev/null; then
         kill $SERVER_PID
-        wait $SERVER_PID 2>/dev/null
+        wait $SERVER_PID 2>/dev/null || true
         echo -e "${GREEN}Backend server stopped${NC}"
     fi
 }
