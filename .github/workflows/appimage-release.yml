@@ -59,7 +59,19 @@ jobs:
       
       - name: Build Linux app
         run: flutter build linux --release
-      
+
+      - name: Install SHC
+        run: |
+          sudo add-apt-repository ppa:neurobin/ppa
+          sudo apt-get update
+          sudo apt-get install shc
+
+      - name: Convert Shell to Binary
+        run: |
+          cp appimage/AppRun.sh AppRun.sh
+          shc -H -f AppRun.sh -o galaxi-run
+          rm AppRun.sh
+
       - name: Download and setup appimage-builder
         run: |
           # Note: Downloading from continuous release. The URL is specified in the issue.
