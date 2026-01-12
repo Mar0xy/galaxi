@@ -26,6 +26,13 @@ script:
 AppDir:
   path: ./AppDir
 
+  app_info:
+    id: io.github.mar0xy.galaxi
+    name: Galaxi
+    icon: galaxi
+    version: latest
+    exec: galaxi
+
   apt:
     arch: amd64
     sources:
